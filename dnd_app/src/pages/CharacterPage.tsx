@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import SpellsTab from '../components/SpellsTab'
 import InventoryTab from '../components/InventoryTab'
+import CombatTab from '../components/CombatTab'
 
 type Tab = 'stats' | 'spells' | 'inventory' | 'combat'
 
@@ -302,30 +303,12 @@ export default function CharacterPage({
           <InventoryTab characterId={character.id} characterName={character.name} />
         )}
 
-        {tab === 'combat' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              { label: 'Classe Armatura', value: 10 + Math.floor(((character.stats.DES as number) - 10) / 2), icon: '🛡️' },
-              { label: 'Iniziativa', value: mod(character.stats.DES as number), icon: '⚡' },
-              { label: 'Velocità', value: '9 m', icon: '💨' },
-              { label: 'Bonus Competenza', value: '+' + (character.level < 5 ? 2 : character.level < 9 ? 3 : 4), icon: '🎯' },
-            ].map(item => (
-              <div key={item.label} style={{
-                background: '#16161f', border: '1px solid #2a2a3a',
-                borderRadius: 10, padding: 16, textAlign: 'center'
-              }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon}</div>
-                <div style={{ fontSize: 26, fontWeight: 700, color: '#c9a84c' }}>{item.value}</div>
-                <div style={{
-                  fontSize: 11, color: '#666', marginTop: 4,
-                  textTransform: 'uppercase', letterSpacing: 0.5
-                }}>
-                  {item.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {tab === 'combat' && (
+        <CombatTab
+          character={character}
+          characterId={character.id}
+        />
+      )}
 
       </div>
 
