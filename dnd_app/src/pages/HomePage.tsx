@@ -109,7 +109,7 @@ export default function HomePage() {
                 fontWeight: 700, fontSize: 15, letterSpacing: 0.5
               }}
             >
-              + Nuovo Personaggio
+              + Nuovo Personaggioooooo
             </button>
 
             {loading && <p style={{ color: '#555', textAlign: 'center' }}>Caricamento...</p>}
