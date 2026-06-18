@@ -66,37 +66,35 @@ export default function MembersTab({
     if (data) setMyCharacters(data)
   }
 
-  async function loadMembers() {
-    const { data } = await supabase
-      .from('campaign_members')
-      .select('*')
-      .eq('campaign_id', campaignId)
-    if (data) {
-      setMembers(data)
-      const charIds = data.map(m => m.character_id).filter(Boolean)
-      if (charIds.length > 0) {
-        const { data: chars } = await supabase
-          .from('characters')
-          .select('id, name, race, character_class, level, hp_current, hp_max, image_path')
-          .in('id', charIds)
-        if (chars) {
-          const charMap: Record<string, CharacterInfo> = {}
-          const urlMap: Record<string, string> = {}
-          chars.forEach(c => {
-            charMap[c.id] = c
-            if (c.image_path) {
-              urlMap[c.id] = supabase.storage
-                .from(BUCKET)
-                .getPublicUrl(c.image_path).data.publicUrl
-            }
-          })
-          setCharacters(charMap)
-          setImageUrls(urlMap)
-        }
+async function loadMembers() {
+  const { data } = await supabase
+    .rpc('get_campaign_members', { cid: campaignId })
+  if (data) {
+    setMembers(data)
+    const charIds = data.map((m: Member) => m.character_id).filter(Boolean)
+    if (charIds.length > 0) {
+      const { data: chars } = await supabase
+        .from('characters')
+        .select('id, name, race, character_class, level, hp_current, hp_max, image_path')
+        .in('id', charIds)
+      if (chars) {
+        const charMap: Record<string, CharacterInfo> = {}
+        const urlMap: Record<string, string> = {}
+        chars.forEach(c => {
+          charMap[c.id] = c
+          if (c.image_path) {
+            urlMap[c.id] = supabase.storage
+              .from(BUCKET)
+              .getPublicUrl(c.image_path).data.publicUrl
+          }
+        })
+        setCharacters(charMap)
+        setImageUrls(urlMap)
       }
     }
-    setLoading(false)
   }
+  setLoading(false)
+}
 
   async function handleChangeCharacter() {
     setSaving(true)
