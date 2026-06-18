@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useDialog } from './Dialog'
 
 interface Session {
   id: string
@@ -25,6 +26,7 @@ export default function SessionsList({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [summary, setSummary] = useState('')
   const [saving, setSaving] = useState(false)
+  const { confirm, DialogComponent } = useDialog()
 
   async function loadSessions() {
     const { data } = await supabase
@@ -42,13 +44,9 @@ export default function SessionsList({
     if (!title) return
     setSaving(true)
     if (editing) {
-      await supabase.from('sessions')
-        .update({ title, date, summary })
-        .eq('id', editing.id)
+      await supabase.from('sessions').update({ title, date, summary }).eq('id', editing.id)
     } else {
-      await supabase.from('sessions').insert({
-        campaign_id: campaignId, title, date, summary
-      })
+      await supabase.from('sessions').insert({ campaign_id: campaignId, title, date, summary })
     }
     setShowForm(false)
     setEditing(null)
@@ -67,10 +65,25 @@ export default function SessionsList({
     setShowForm(true)
   }
 
+  async function handleDelete(s: Session) {
+    const ok = await confirm({
+      title: 'Elimina Sessione',
+      message: `Sei sicuro di voler eliminare "${s.title}"?`,
+      confirmLabel: '🗑️ Elimina',
+      cancelLabel: 'Annulla',
+      danger: true
+    })
+    if (!ok) return
+    await supabase.from('sessions').delete().eq('id', s.id)
+    loadSessions()
+  }
+
   if (loading) return <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento...</p>
 
   return (
     <div>
+      <DialogComponent />
+
       {isMaster && (
         <button
           onClick={() => { setShowForm(true); setEditing(null); setTitle(''); setSummary('') }}
@@ -80,9 +93,7 @@ export default function SessionsList({
             color: '#0f0f13', border: 'none', borderRadius: 8,
             fontWeight: 700, fontSize: 14
           }}
-        >
-          + Nuova Sessione
-        </button>
+        >+ Nuova Sessione</button>
       )}
 
       {showForm && (
@@ -98,16 +109,14 @@ export default function SessionsList({
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             style={{ width: '100%', marginBottom: 8 }} />
           <textarea value={summary} onChange={e => setSummary(e.target.value)}
-            placeholder="Riassunto della sessione..." rows={4}
+            placeholder="Riassunto della sessione..." rows={6}
             style={{ width: '100%', resize: 'vertical', marginBottom: 12 }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleSave} disabled={saving} style={{
               flex: 1, padding: '8px 0',
               background: 'linear-gradient(135deg, #c9a84c, #a07830)',
               color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700
-            }}>
-              {saving ? '...' : 'Salva'}
-            </button>
+            }}>{saving ? '...' : 'Salva'}</button>
             <button onClick={() => { setShowForm(false); setEditing(null) }} style={{
               padding: '8px 16px', background: 'none',
               border: '1px solid #2a2a3a', color: '#888', borderRadius: 8
@@ -141,9 +150,7 @@ export default function SessionsList({
                   <span style={{
                     fontSize: 10, padding: '2px 6px', borderRadius: 4,
                     background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-                  }}>
-                    #{sessions.length - i}
-                  </span>
+                  }}>#{sessions.length - i}</span>
                   <span style={{ fontWeight: 600, color: '#e8e0d0' }}>{s.title}</span>
                 </div>
                 <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
@@ -152,18 +159,22 @@ export default function SessionsList({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {isMaster && (
-                  <button
-                    onClick={e => { e.stopPropagation(); startEdit(s) }}
-                    style={{ background: 'none', border: 'none', color: '#555', fontSize: 14, cursor: 'pointer' }}
-                  >✏️</button>
+                  <>
+                    <button onClick={e => { e.stopPropagation(); startEdit(s) }}
+                      style={{ background: 'none', border: 'none', color: '#555', fontSize: 14, cursor: 'pointer' }}>✏️</button>
+                    <button onClick={e => { e.stopPropagation(); handleDelete(s) }}
+                      style={{ background: 'none', border: 'none', color: '#555', fontSize: 16, cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#555')}>×</button>
+                  </>
                 )}
                 <span style={{ color: '#555', fontSize: 12 }}>{expanded === s.id ? '▲' : '▼'}</span>
               </div>
             </div>
             {expanded === s.id && s.summary && (
               <div style={{
-                padding: '0 16px 14px', fontSize: 13, color: '#888',
-                lineHeight: 1.7, borderTop: '1px solid #2a2a3a', paddingTop: 12
+                padding: '12px 16px 14px', fontSize: 13, color: '#888',
+                lineHeight: 1.8, borderTop: '1px solid #2a2a3a', whiteSpace: 'pre-wrap'
               }}>
                 {s.summary}
               </div>

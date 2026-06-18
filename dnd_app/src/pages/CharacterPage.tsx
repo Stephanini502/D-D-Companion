@@ -4,6 +4,7 @@ import type { Character } from '../models/character'
 import SpellsTab from '../components/SpellsTab'
 import InventoryTab from '../components/InventoryTab'
 import CombatTab from '../components/CombatTab'
+import { useDialog } from '../components/Dialog'
 
 type Tab = 'stats' | 'spells' | 'inventory' | 'combat'
 
@@ -28,6 +29,7 @@ export default function CharacterPage({
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showFullImage, setShowFullImage] = useState(false)
+  const { confirm, DialogComponent } = useDialog()
 
   useEffect(() => {
     async function loadImage() {
@@ -50,28 +52,17 @@ export default function CharacterPage({
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingImage(true)
-
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `${character.id}.${ext}`
-
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(path, file, { upsert: true })
-
     if (uploadError) {
-      alert('Errore upload: ' + uploadError.message)
       setUploadingImage(false)
       return
     }
-
-    await supabase
-      .from('characters')
-      .update({ image_path: path })
-      .eq('id', character.id)
-
-    const url = supabase.storage
-      .from(BUCKET)
-      .getPublicUrl(path).data.publicUrl
+    await supabase.from('characters').update({ image_path: path }).eq('id', character.id)
+    const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
     setImageUrl(url + '?t=' + Date.now())
     setUploadingImage(false)
   }
@@ -82,7 +73,14 @@ export default function CharacterPage({
   }
 
   async function handleDelete() {
-    if (!confirm(`Eliminare ${character.name}? Questa azione è irreversibile.`)) return
+    const ok = await confirm({
+      title: 'Elimina Personaggio',
+      message: `Sei sicuro di voler eliminare ${character.name}? Questa azione è irreversibile.`,
+      confirmLabel: '🗑️ Elimina',
+      cancelLabel: 'Annulla',
+      danger: true
+    })
+    if (!ok) return
     setDeleting(true)
     await supabase.from('spells').delete().eq('character_id', character.id)
     await supabase.from('inventory_items').delete().eq('character_id', character.id)
@@ -95,36 +93,26 @@ export default function CharacterPage({
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
+      <DialogComponent />
 
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
       }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'none', border: '1px solid #2a2a3a',
-            color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
-          }}
-        >
-          ← Indietro
-        </button>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          style={{
-            background: 'none', border: '1px solid #e05555',
-            color: '#e05555', borderRadius: 8, padding: '6px 12px', fontSize: 13
-          }}
-        >
+        <button onClick={onBack} style={{
+          background: 'none', border: '1px solid #2a2a3a',
+          color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
+        }}>← Indietro</button>
+        <button onClick={handleDelete} disabled={deleting} style={{
+          background: 'none', border: '1px solid #e05555',
+          color: '#e05555', borderRadius: 8, padding: '6px 12px', fontSize: 13
+        }}>
           {deleting ? 'Eliminazione...' : '🗑️ Elimina'}
         </button>
       </div>
 
       <div style={{ padding: '24px 24px 0' }}>
-
-        {/* Info personaggio */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'flex-start' }}>
           <div style={{ flexShrink: 0 }}>
             <div style={{
@@ -151,7 +139,6 @@ export default function CharacterPage({
             <p style={{ color: '#888', fontSize: 13, margin: '4px 0 8px' }}>
               {character.race} · {character.character_class} · Livello {character.level}
             </p>
-
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
@@ -203,16 +190,11 @@ export default function CharacterPage({
             </button>
           ))}
         </div>
-
       </div>
 
-      {/* Contenuto tab */}
       <div style={{ padding: '0 24px 24px' }}>
-
         {tab === 'stats' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Immagine grande */}
             <div style={{ position: 'relative' }}>
               <div
                 onClick={() => imageUrl && setShowFullImage(true)}
@@ -224,70 +206,40 @@ export default function CharacterPage({
                 }}
               >
                 {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={character.name}
+                  <img src={imageUrl} alt={character.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={() => setImageUrl(null)}
-                  />
+                    onError={() => setImageUrl(null)} />
                 ) : (
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 72 }}>
-                      {classIcons[character.character_class] ?? '🧙'}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#444', marginTop: 8 }}>
-                      Nessuna immagine
-                    </div>
+                    <div style={{ fontSize: 72 }}>{classIcons[character.character_class] ?? '🧙'}</div>
+                    <div style={{ fontSize: 12, color: '#444', marginTop: 8 }}>Nessuna immagine</div>
                   </div>
                 )}
               </div>
-
               <label style={{
                 position: 'absolute', bottom: 10, right: 10,
                 display: 'flex', alignItems: 'center', gap: 4,
                 fontSize: 12, color: '#e8e0d0', cursor: 'pointer',
-                padding: '6px 12px',
-                background: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(4px)',
-                border: '1px solid #3a3a4a',
-                borderRadius: 8
+                padding: '6px 12px', background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(4px)', border: '1px solid #3a3a4a', borderRadius: 8
               }}>
                 {uploadingImage ? '⏳ Caricamento...' : '📷 Cambia foto'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  style={{ display: 'none' }}
-                />
+                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
               </label>
             </div>
 
-            {/* Statistiche 3x2 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {Object.entries(character.stats).map(([key, val]) => (
                 <div key={key} style={{
                   background: '#16161f', border: '1px solid #2a2a3a',
                   borderRadius: 10, padding: '10px 8px', textAlign: 'center'
                 }}>
-                  <div style={{
-                    fontSize: 10, color: '#666',
-                    letterSpacing: 1, textTransform: 'uppercase'
-                  }}>
-                    {key}
-                  </div>
-                  <div style={{
-                    fontSize: 22, fontWeight: 700,
-                    color: '#e8e0d0', lineHeight: 1.2, marginTop: 4
-                  }}>
-                    {val as number}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>
-                    {mod(val as number)}
-                  </div>
+                  <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase' }}>{key}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', lineHeight: 1.2, marginTop: 4 }}>{val as number}</div>
+                  <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>{mod(val as number)}</div>
                 </div>
               ))}
             </div>
-
           </div>
         )}
 
@@ -303,53 +255,32 @@ export default function CharacterPage({
           <InventoryTab characterId={character.id} characterName={character.name} />
         )}
 
-      {tab === 'combat' && (
-        <CombatTab
-          character={character}
-          characterId={character.id}
-        />
-      )}
-
+        {tab === 'combat' && (
+          <CombatTab character={character} characterId={character.id} />
+        )}
       </div>
 
-      {/* Fullscreen immagine */}
       {showFullImage && imageUrl && (
-        <div
-          onClick={() => setShowFullImage(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(0,0,0,0.95)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out'
-          }}
-        >
-          <button
-            onClick={() => setShowFullImage(false)}
-            style={{
-              position: 'absolute', top: 20, right: 20,
-              background: 'rgba(255,255,255,0.1)', border: 'none',
-              color: '#fff', fontSize: 24, width: 40, height: 40,
-              borderRadius: '50%', cursor: 'pointer'
-            }}
-          >×</button>
-          <img
-            src={imageUrl}
-            alt={character.name}
-            style={{
-              maxWidth: '95vw', maxHeight: '95vh',
-              objectFit: 'contain', borderRadius: 12
-            }}
-            onClick={e => e.stopPropagation()}
-          />
-          <div style={{
-            position: 'absolute', bottom: 20,
-            color: '#888', fontSize: 13
-          }}>
+        <div onClick={() => setShowFullImage(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.95)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'zoom-out'
+        }}>
+          <button onClick={() => setShowFullImage(false)} style={{
+            position: 'absolute', top: 20, right: 20,
+            background: 'rgba(255,255,255,0.1)', border: 'none',
+            color: '#fff', fontSize: 24, width: 40, height: 40,
+            borderRadius: '50%', cursor: 'pointer'
+          }}>×</button>
+          <img src={imageUrl} alt={character.name}
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: 12 }}
+            onClick={e => e.stopPropagation()} />
+          <div style={{ position: 'absolute', bottom: 20, color: '#888', fontSize: 13 }}>
             {character.name} · {character.race} · {character.character_class}
           </div>
         </div>
       )}
-
     </div>
   )
 }

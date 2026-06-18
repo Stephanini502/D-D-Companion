@@ -11,6 +11,14 @@ interface Campaign {
   created_at: string
 }
 
+interface Character {
+  id: string
+  name: string
+  race: string
+  character_class: string
+  level: number
+}
+
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,14 +26,13 @@ export default function CampaignsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [myCharacters, setMyCharacters] = useState<Character[]>([])
 
-  // Form crea
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
-
-  // Form entra
   const [inviteCode, setInviteCode] = useState('')
   const [username, setUsername] = useState('')
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>('')
   const [error, setError] = useState('')
   const [loadingAction, setLoadingAction] = useState(false)
 
@@ -34,7 +41,19 @@ export default function CampaignsPage() {
       setUserId(user?.id ?? null)
     })
     loadCampaigns()
+    loadMyCharacters()
   }, [])
+
+  async function loadMyCharacters() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('characters')
+      .select('id, name, race, character_class, level')
+      .eq('user_id', user.id)
+      .order('name')
+    if (data) setMyCharacters(data)
+  }
 
   async function loadCampaigns() {
     const { data, error } = await supabase.rpc('get_user_campaigns')
@@ -48,13 +67,9 @@ export default function CampaignsPage() {
     setLoadingAction(true)
     setError('')
     const { data: { user } } = await supabase.auth.getUser()
-
     const { error } = await supabase.from('campaigns').insert({
-      name: newName,
-      description: newDesc,
-      master_id: user?.id
+      name: newName, description: newDesc, master_id: user?.id
     })
-
     if (error) setError(error.message)
     else {
       setShowCreate(false)
@@ -65,37 +80,37 @@ export default function CampaignsPage() {
     setLoadingAction(false)
   }
 
- async function handleJoin() {
-  if (!inviteCode || !username) { setError('Compila tutti i campi'); return }
-  setLoadingAction(true)
-  setError('')
+  async function handleJoin() {
+    if (!inviteCode || !username) { setError('Compila tutti i campi'); return }
+    setLoadingAction(true)
+    setError('')
 
-  const { data: campaigns } = await supabase
-    .rpc('get_campaign_by_invite', { code: inviteCode.toUpperCase() })
+    const { data: campaigns } = await supabase
+      .rpc('get_campaign_by_invite', { code: inviteCode.toUpperCase() })
+    const campaign = campaigns?.[0]
+    if (!campaign) { setError('Codice invito non valido'); setLoadingAction(false); return }
 
-  const campaign = campaigns?.[0]
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('campaign_members').insert({
+      campaign_id: campaign.id,
+      user_id: user?.id,
+      role: 'player',
+      username,
+      character_id: selectedCharacterId || null
+    })
 
-  if (!campaign) { setError('Codice invito non valido'); setLoadingAction(false); return }
-
-  const { data: { user } } = await supabase.auth.getUser()
-  const { error } = await supabase.from('campaign_members').insert({
-    campaign_id: campaign.id,
-    user_id: user?.id,
-    role: 'player',
-    username
-  })
-
-  if (error) {
-    if (error.code === '23505') setError('Sei già membro di questa campagna')
-    else setError(error.message)
-  } else {
-    setShowJoin(false)
-    setInviteCode('')
-    setUsername('')
-    loadCampaigns()
+    if (error) {
+      if (error.code === '23505') setError('Sei già membro di questa campagna')
+      else setError(error.message)
+    } else {
+      setShowJoin(false)
+      setInviteCode('')
+      setUsername('')
+      setSelectedCharacterId('')
+      loadCampaigns()
+    }
+    setLoadingAction(false)
   }
-  setLoadingAction(false)
-}
 
   if (selected) return (
     <CampaignPage
@@ -131,42 +146,26 @@ export default function CampaignsPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <button
-          onClick={() => { setShowCreate(true); setError('') }}
-          style={{
-            flex: 1, padding: '12px 0',
-            background: 'linear-gradient(135deg, #c9a84c, #a07830)',
-            color: '#0f0f13', border: 'none', borderRadius: 8,
-            fontWeight: 700, fontSize: 14
-          }}
-        >
-          + Crea Campagna
-        </button>
-        <button
-          onClick={() => { setShowJoin(true); setError('') }}
-          style={{
-            flex: 1, padding: '12px 0',
-            background: '#1e1e2a', border: '1px solid #c9a84c',
-            color: '#c9a84c', borderRadius: 8,
-            fontWeight: 700, fontSize: 14
-          }}
-        >
-          🔑 Entra
-        </button>
+        <button onClick={() => { setShowCreate(true); setError('') }} style={{
+          flex: 1, padding: '12px 0',
+          background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+          color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14
+        }}>+ Crea Campagna</button>
+        <button onClick={() => { setShowJoin(true); setError('') }} style={{
+          flex: 1, padding: '12px 0',
+          background: '#1e1e2a', border: '1px solid #c9a84c',
+          color: '#c9a84c', borderRadius: 8, fontWeight: 700, fontSize: 14
+        }}>🔑 Entra</button>
       </div>
 
       {loading && <p style={{ color: '#555', textAlign: 'center' }}>Caricamento...</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {campaigns.map(c => (
-          <div
-            key={c.id}
-            onClick={() => setSelected(c)}
-            style={{
-              background: '#16161f', border: '1px solid #2a2a3a',
-              borderRadius: 12, padding: 16, cursor: 'pointer',
-              transition: 'border-color 0.2s'
-            }}
+          <div key={c.id} onClick={() => setSelected(c)} style={{
+            background: '#16161f', border: '1px solid #2a2a3a',
+            borderRadius: 12, padding: 16, cursor: 'pointer', transition: 'border-color 0.2s'
+          }}
             onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a84c')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a3a')}
           >
@@ -181,14 +180,12 @@ export default function CampaignsPage() {
                 {c.master_id === userId && (
                   <span style={{
                     fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                    background: '#c9a84c22', color: '#c9a84c',
-                    border: '1px solid #c9a84c44'
+                    background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
                   }}>👑 Master</span>
                 )}
                 <span style={{
                   fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                  background: '#2a2a3a', color: '#555',
-                  fontFamily: 'monospace', letterSpacing: 1
+                  background: '#2a2a3a', color: '#555', fontFamily: 'monospace', letterSpacing: 1
                 }}>{c.invite_code}</span>
               </div>
             </div>
@@ -226,9 +223,7 @@ export default function CampaignsPage() {
                 flex: 1, padding: '10px 0',
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700
-              }}>
-                {loadingAction ? '...' : 'Crea'}
-              </button>
+              }}>{loadingAction ? '...' : 'Crea'}</button>
               <button onClick={() => setShowCreate(false)} style={{
                 padding: '10px 16px', background: 'none',
                 border: '1px solid #2a2a3a', color: '#888', borderRadius: 8
@@ -246,13 +241,35 @@ export default function CampaignsPage() {
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Codice Invito *</label>
               <input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="Es. AB12CD" style={{ width: '100%', fontFamily: 'monospace', letterSpacing: 2 }}
+                placeholder="Es. AB12CD"
+                style={{ width: '100%', fontFamily: 'monospace', letterSpacing: 2 }}
                 autoFocus maxLength={6} />
             </div>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Il tuo nome *</label>
               <input value={username} onChange={e => setUsername(e.target.value)}
                 placeholder="Come vuoi essere chiamato?" style={{ width: '100%' }} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Il tuo personaggio</label>
+              {myCharacters.length === 0 ? (
+                <p style={{ color: '#555', fontSize: 12, margin: 0 }}>
+                  Nessun personaggio disponibile — creane uno prima!
+                </p>
+              ) : (
+                <select
+                  value={selectedCharacterId}
+                  onChange={e => setSelectedCharacterId(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value=''>Scegli un personaggio...</option>
+                  {myCharacters.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.race} {c.character_class} Liv.{c.level}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             {error && <p style={{ color: '#e05555', fontSize: 13, marginBottom: 12 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -260,9 +277,7 @@ export default function CampaignsPage() {
                 flex: 1, padding: '10px 0',
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700
-              }}>
-                {loadingAction ? '...' : 'Entra'}
-              </button>
+              }}>{loadingAction ? '...' : 'Entra'}</button>
               <button onClick={() => setShowJoin(false)} style={{
                 padding: '10px 16px', background: 'none',
                 border: '1px solid #2a2a3a', color: '#888', borderRadius: 8

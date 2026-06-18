@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import InitiativeTracker from '../components/InitiativeTracker'
 import CampaignNotes from '../components/CampaignNotes'
 import SessionsList from '../components/SessionsList'
+import MembersTab from '../components/MembersTab'
+import { useDialog } from '../components/Dialog'
 
 interface Campaign {
   id: string
@@ -10,13 +12,6 @@ interface Campaign {
   description: string
   master_id: string
   invite_code: string
-}
-
-interface Member {
-  id: string
-  user_id: string
-  role: string
-  username: string
 }
 
 type Tab = 'sessions' | 'notes' | 'initiative' | 'members'
@@ -31,23 +26,18 @@ export default function CampaignPage({
   onBack: () => void
 }) {
   const [tab, setTab] = useState<Tab>('sessions')
-  const [members, setMembers] = useState<Member[]>([])
   const isMaster = campaign.master_id === userId
-
-  useEffect(() => {
-    loadMembers()
-  }, [])
-
-  async function loadMembers() {
-    const { data } = await supabase
-      .from('campaign_members')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-    if (data) setMembers(data)
-  }
+  const { confirm, DialogComponent } = useDialog()
 
   async function handleLeave() {
-    if (!confirm('Vuoi abbandonare questa campagna?')) return
+    const ok = await confirm({
+      title: 'Abbandona Campagna',
+      message: 'Sei sicuro di voler abbandonare questa campagna?',
+      confirmLabel: '🚪 Abbandona',
+      cancelLabel: 'Annulla',
+      danger: true
+    })
+    if (!ok) return
     await supabase.from('campaign_members')
       .delete()
       .eq('campaign_id', campaign.id)
@@ -56,13 +46,21 @@ export default function CampaignPage({
   }
 
   async function handleDelete() {
-    if (!confirm(`Eliminare la campagna "${campaign.name}"? Questa azione è irreversibile.`)) return
+    const ok = await confirm({
+      title: 'Elimina Campagna',
+      message: `Sei sicuro di voler eliminare "${campaign.name}"? Questa azione è irreversibile.`,
+      confirmLabel: '🗑️ Elimina',
+      cancelLabel: 'Annulla',
+      danger: true
+    })
+    if (!ok) return
     await supabase.from('campaigns').delete().eq('id', campaign.id)
     onBack()
   }
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
+      <DialogComponent />
 
       {/* Header */}
       <div style={{
@@ -87,17 +85,23 @@ export default function CampaignPage({
       </div>
 
       <div style={{ padding: '20px 24px 0' }}>
+
+        {/* Info campagna */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', margin: 0 }}>
               {campaign.name}
             </h1>
             {campaign.description && (
-              <p style={{ color: '#666', fontSize: 13, margin: '4px 0 0' }}>{campaign.description}</p>
+              <p style={{ color: '#666', fontSize: 13, margin: '4px 0 0' }}>
+                {campaign.description}
+              </p>
             )}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-            {isMaster && <div style={{ fontSize: 10, color: '#c9a84c', marginBottom: 2 }}>👑 Sei il Master</div>}
+            {isMaster && (
+              <div style={{ fontSize: 10, color: '#c9a84c', marginBottom: 2 }}>👑 Sei il Master</div>
+            )}
             <div style={{
               fontSize: 13, fontFamily: 'monospace', letterSpacing: 2,
               color: '#888', background: '#1e1e2a', padding: '4px 8px',
@@ -131,6 +135,7 @@ export default function CampaignPage({
         </div>
       </div>
 
+      {/* Contenuto tab */}
       <div style={{ padding: '0 24px 24px' }}>
         {tab === 'sessions' && (
           <SessionsList campaignId={campaign.id} isMaster={isMaster} />
@@ -142,64 +147,12 @@ export default function CampaignPage({
           <InitiativeTracker campaignId={campaign.id} isMaster={isMaster} />
         )}
         {tab === 'members' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Master */}
-            <div style={{
-              background: '#16161f', border: '1px solid #c9a84c44',
-              borderRadius: 10, padding: '12px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-            }}>
-              <div>
-                <div style={{ fontWeight: 600, color: '#e8e0d0' }}>Master</div>
-                <div style={{ fontSize: 12, color: '#666' }}>Creatore della campagna</div>
-              </div>
-              <span style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-              }}>👑 Master</span>
-            </div>
-
-            {/* Giocatori */}
-            {members.map(m => (
-              <div key={m.id} style={{
-                background: '#16161f', border: '1px solid #2a2a3a',
-                borderRadius: 10, padding: '12px 16px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-              }}>
-                <div>
-                  <div style={{ fontWeight: 600, color: '#e8e0d0' }}>
-                    {m.username || 'Giocatore'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#666' }}>Giocatore</div>
-                </div>
-                {isMaster && (
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Rimuovere ${m.username} dalla campagna?`)) return
-                      await supabase.from('campaign_members').delete().eq('id', m.id)
-                      loadMembers()
-                    }}
-                    style={{
-                      background: 'none', border: 'none',
-                      color: '#3a3a4a', fontSize: 18, cursor: 'pointer'
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
-                    onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
-                  >×</button>
-                )}
-              </div>
-            ))}
-
-            {members.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#444', padding: 40 }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
-                <p>Nessun giocatore ancora.</p>
-                <p style={{ fontSize: 13, color: '#555', marginTop: 4 }}>
-                  Condividi il codice <strong style={{ color: '#c9a84c' }}>{campaign.invite_code}</strong>
-                </p>
-              </div>
-            )}
-          </div>
+          <MembersTab
+            campaignId={campaign.id}
+            userId={userId}
+            isMaster={isMaster}
+            inviteCode={campaign.invite_code}
+          />
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { Character } from '../models/character'
 import CreateCharacterPage from './CreateCharacterPage'
 import CharacterPage from './CharacterPage'
 import CampaignsPage from './CampaignsPage'
+import { useDialog } from '../components/Dialog'
 
 type Section = 'characters' | 'campaigns'
 
@@ -13,25 +14,43 @@ export default function HomePage() {
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<Character | null>(null)
   const [loading, setLoading] = useState(true)
+  const { confirm, DialogComponent } = useDialog()
 
-  async function loadCharacters() {
-    const { data } = await supabase
-      .from('characters')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setCharacters(data)
-    setLoading(false)
-  }
-
+async function loadCharacters() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { data } = await supabase
+    .from('characters')
+    .select('*')
+    .eq('user_id', user.id)  // <-- aggiungi questo filtro
+    .order('created_at', { ascending: false })
+  if (data) setCharacters(data)
+  setLoading(false)
+}
   useEffect(() => { loadCharacters() }, [])
 
   async function handleLogout() {
+    const ok = await confirm({
+      title: 'Esci',
+      message: 'Sei sicuro di voler uscire?',
+      confirmLabel: 'Esci',
+      cancelLabel: 'Annulla',
+      danger: false
+    })
+    if (!ok) return
     await supabase.auth.signOut()
   }
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm('Eliminare questo personaggio?')) return
+    const ok = await confirm({
+      title: 'Elimina Personaggio',
+      message: 'Sei sicuro di voler eliminare questo personaggio? Questa azione è irreversibile.',
+      confirmLabel: '🗑️ Elimina',
+      cancelLabel: 'Annulla',
+      danger: true
+    })
+    if (!ok) return
     await supabase.from('spells').delete().eq('character_id', id)
     await supabase.from('inventory_items').delete().eq('character_id', id)
     await supabase.from('characters').delete().eq('id', id)
@@ -54,61 +73,45 @@ export default function HomePage() {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
+      <DialogComponent />
 
-      {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
       }}>
         <h1 style={{ color: '#c9a84c', fontSize: 20, fontWeight: 700, margin: 0 }}>⚔️ D&D Companion</h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'none', border: '1px solid #2a2a3a',
-            color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
-          }}
-        >Esci</button>
+        <button onClick={handleLogout} style={{
+          background: 'none', border: '1px solid #2a2a3a',
+          color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
+        }}>Esci</button>
       </div>
 
-      {/* Nav bar */}
-      <div style={{
-        display: 'flex', borderBottom: '1px solid #2a2a3a',
-        padding: '0 24px'
-      }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', padding: '0 24px' }}>
         {([
           { key: 'characters', label: '👤 Personaggi' },
           { key: 'campaigns', label: '🗺️ Campagne' },
         ] as { key: Section, label: string }[]).map(s => (
-          <button
-            key={s.key}
-            onClick={() => setSection(s.key)}
-            style={{
-              padding: '12px 16px', background: 'none', border: 'none',
-              borderBottom: section === s.key ? '2px solid #c9a84c' : '2px solid transparent',
-              color: section === s.key ? '#c9a84c' : '#555',
-              fontWeight: section === s.key ? 700 : 400,
-              cursor: 'pointer', fontSize: 14, transition: 'color 0.2s'
-            }}
-          >
+          <button key={s.key} onClick={() => setSection(s.key)} style={{
+            padding: '12px 16px', background: 'none', border: 'none',
+            borderBottom: section === s.key ? '2px solid #c9a84c' : '2px solid transparent',
+            color: section === s.key ? '#c9a84c' : '#555',
+            fontWeight: section === s.key ? 700 : 400,
+            cursor: 'pointer', fontSize: 14, transition: 'color 0.2s'
+          }}>
             {s.label}
           </button>
         ))}
       </div>
 
       <div style={{ padding: 24 }}>
-
-        {/* Sezione Personaggi */}
         {section === 'characters' && (
           <>
-            <button
-              onClick={() => setCreating(true)}
-              style={{
-                width: '100%', padding: '14px 0', marginBottom: 24,
-                background: 'linear-gradient(135deg, #c9a84c, #a07830)',
-                color: '#0f0f13', border: 'none', borderRadius: 10,
-                fontWeight: 700, fontSize: 15, letterSpacing: 0.5
-              }}
-            >
+            <button onClick={() => setCreating(true)} style={{
+              width: '100%', padding: '14px 0', marginBottom: 24,
+              background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+              color: '#0f0f13', border: 'none', borderRadius: 10,
+              fontWeight: 700, fontSize: 15, letterSpacing: 0.5
+            }}>
               + Nuovo Personaggio
             </button>
 
@@ -116,15 +119,12 @@ export default function HomePage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {characters.map(c => (
-                <div
-                  key={c.id}
-                  onClick={() => setSelected(c)}
-                  style={{
-                    background: '#16161f', border: '1px solid #2a2a3a',
-                    borderRadius: 12, padding: 16, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    position: 'relative', transition: 'border-color 0.2s'
-                  }}
+                <div key={c.id} onClick={() => setSelected(c)} style={{
+                  background: '#16161f', border: '1px solid #2a2a3a',
+                  borderRadius: 12, padding: 16, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  position: 'relative', transition: 'border-color 0.2s'
+                }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a84c')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a3a')}
                 >
@@ -152,12 +152,10 @@ export default function HomePage() {
                       }}>❤️ {c.hp_current}/{c.hp_max}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={e => handleDelete(c.id, e)}
-                    style={{
-                      background: 'none', border: 'none',
-                      color: '#3a3a4a', fontSize: 20, padding: 4, transition: 'color 0.2s'
-                    }}
+                  <button onClick={e => handleDelete(c.id, e)} style={{
+                    background: 'none', border: 'none',
+                    color: '#3a3a4a', fontSize: 20, padding: 4, transition: 'color 0.2s'
+                  }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
                   >×</button>
@@ -175,9 +173,7 @@ export default function HomePage() {
           </>
         )}
 
-        {/* Sezione Campagne */}
         {section === 'campaigns' && <CampaignsPage />}
-
       </div>
     </div>
   )
