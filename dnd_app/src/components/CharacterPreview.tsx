@@ -346,9 +346,9 @@ export default function CharacterPreview({
             {/* Tab bar */}
             <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', marginBottom: 16 }}>
               {([
-                { key: 'stats', label: '{UI_ICONS.stats} Stats' },
-                { key: 'inventory', label: '{UI_ICONS.inventory} Inventario' },
-                { key: 'spells', label: '{UI_ICONS.spells} Magie' },
+                { key: 'stats', label: `${UI_ICONS.stats} Stats` },
+                { key: 'inventory', label: `${UI_ICONS.inventory} Inventario` },
+                { key: 'spells', label: `${UI_ICONS.spells} Magie` },
               ] as const).map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)} style={{
                   flex: 1, padding: '10px 4px',
