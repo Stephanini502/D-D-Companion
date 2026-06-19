@@ -137,6 +137,7 @@ async function loadMembers() {
         <CharacterPreview
           characterId={selectedCharacterId}
           onClose={() => setSelectedCharacterId(null)}
+          isMaster={isMaster}
         />
       )}
 

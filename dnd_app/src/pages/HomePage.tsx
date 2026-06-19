@@ -5,6 +5,7 @@ import CreateCharacterPage from './CreateCharacterPage'
 import CharacterPage from './CharacterPage'
 import CampaignsPage from './CampaignsPage'
 import { useDialog } from '../components/Dialog'
+import { getClassIcon, UI_ICONS, SECTION_LABELS } from '../data/icons'
 
 type Section = 'characters' | 'campaigns'
 
@@ -16,17 +17,18 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const { confirm, DialogComponent } = useDialog()
 
-async function loadCharacters() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  const { data } = await supabase
-    .from('characters')
-    .select('*')
-    .eq('user_id', user.id)  // <-- aggiungi questo filtro
-    .order('created_at', { ascending: false })
-  if (data) setCharacters(data)
-  setLoading(false)
-}
+  async function loadCharacters() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('characters')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    if (data) setCharacters(data)
+    setLoading(false)
+  }
+
   useEffect(() => { loadCharacters() }, [])
 
   async function handleLogout() {
@@ -46,7 +48,7 @@ async function loadCharacters() {
     const ok = await confirm({
       title: 'Elimina Personaggio',
       message: 'Sei sicuro di voler eliminare questo personaggio? Questa azione è irreversibile.',
-      confirmLabel: '🗑️ Elimina',
+      confirmLabel: `${UI_ICONS.delete} Elimina`,
       cancelLabel: 'Annulla',
       danger: true
     })
@@ -65,12 +67,6 @@ async function loadCharacters() {
     <CharacterPage character={selected} onBack={() => { setSelected(null); loadCharacters() }} />
   )
 
-  const classIcons: Record<string, string> = {
-    Barbarian: '🪓', Bard: '🎵', Cleric: '✝️', Druid: '🌿',
-    Fighter: '⚔️', Monk: '👊', Paladin: '🛡️', Ranger: '🏹',
-    Rogue: '🗡️', Sorcerer: '✨', Warlock: '👁️', Wizard: '📚'
-  }
-
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
       <DialogComponent />
@@ -79,17 +75,21 @@ async function loadCharacters() {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
       }}>
-        <h1 style={{ color: '#c9a84c', fontSize: 20, fontWeight: 700, margin: 0 }}>⚔️ D&D Companion</h1>
+        <h1 style={{ color: '#c9a84c', fontSize: 20, fontWeight: 700, margin: 0 }}>
+          {UI_ICONS.combat} D&D Companion
+        </h1>
         <button onClick={handleLogout} style={{
           background: 'none', border: '1px solid #2a2a3a',
           color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
-        }}>Esci</button>
+        }}>
+          {UI_ICONS.logout} Esci
+        </button>
       </div>
 
       <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', padding: '0 24px' }}>
         {([
-          { key: 'characters', label: '👤 Personaggi' },
-          { key: 'campaigns', label: '🗺️ Campagne' },
+          { key: 'characters', label: SECTION_LABELS.characters },
+          { key: 'campaigns', label: SECTION_LABELS.campaigns },
         ] as { key: Section, label: string }[]).map(s => (
           <button key={s.key} onClick={() => setSection(s.key)} style={{
             padding: '12px 16px', background: 'none', border: 'none',
@@ -112,7 +112,7 @@ async function loadCharacters() {
               color: '#0f0f13', border: 'none', borderRadius: 10,
               fontWeight: 700, fontSize: 15, letterSpacing: 0.5
             }}>
-              + Nuovo Personaggio
+              {UI_ICONS.add} Nuovo Personaggio
             </button>
 
             {loading && <p style={{ color: '#555', textAlign: 'center' }}>Caricamento...</p>}
@@ -134,7 +134,7 @@ async function loadCharacters() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 26, flexShrink: 0
                   }}>
-                    {classIcons[c.character_class] ?? '🧙'}
+                    {getClassIcon(c.character_class)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e0d0' }}>{c.name}</div>
@@ -149,7 +149,7 @@ async function loadCharacters() {
                       <span style={{
                         background: '#1e1e2a', border: '1px solid #3a3a4a',
                         borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#e05555'
-                      }}>❤️ {c.hp_current}/{c.hp_max}</span>
+                      }}>{UI_ICONS.hp} {c.hp_current}/{c.hp_max}</span>
                     </div>
                   </div>
                   <button onClick={e => handleDelete(c.id, e)} style={{
@@ -158,14 +158,14 @@ async function loadCharacters() {
                   }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
-                  >×</button>
+                  >{UI_ICONS.close}</button>
                 </div>
               ))}
             </div>
 
             {!loading && characters.length === 0 && (
               <div style={{ textAlign: 'center', color: '#444', marginTop: 60 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🗺️</div>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>{UI_ICONS.campaign}</div>
                 <p>Nessun personaggio ancora.</p>
                 <p style={{ fontSize: 13, marginTop: 4 }}>Crea il tuo primo avventuriero!</p>
               </div>

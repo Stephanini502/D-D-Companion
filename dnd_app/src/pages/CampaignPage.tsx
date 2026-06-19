@@ -5,6 +5,7 @@ import CampaignNotes from '../components/CampaignNotes'
 import SessionsList from '../components/SessionsList'
 import MembersTab from '../components/MembersTab'
 import { useDialog } from '../components/Dialog'
+import { UI_ICONS } from '../data/icons'
 
 interface Campaign {
   id: string
@@ -33,7 +34,7 @@ export default function CampaignPage({
     const ok = await confirm({
       title: 'Abbandona Campagna',
       message: 'Sei sicuro di voler abbandonare questa campagna?',
-      confirmLabel: '🚪 Abbandona',
+      confirmLabel: `${UI_ICONS.logout} Abbandona`,
       cancelLabel: 'Annulla',
       danger: true
     })
@@ -49,7 +50,7 @@ export default function CampaignPage({
     const ok = await confirm({
       title: 'Elimina Campagna',
       message: `Sei sicuro di voler eliminare "${campaign.name}"? Questa azione è irreversibile.`,
-      confirmLabel: '🗑️ Elimina',
+      confirmLabel: `${UI_ICONS.delete} Elimina`,
       cancelLabel: 'Annulla',
       danger: true
     })
@@ -57,6 +58,13 @@ export default function CampaignPage({
     await supabase.from('campaigns').delete().eq('id', campaign.id)
     onBack()
   }
+
+  const tabs = [
+    { key: 'sessions', label: `${UI_ICONS.session} Sessioni` },
+    { key: 'notes', label: `${UI_ICONS.notes} Appunti` },
+    { key: 'initiative', label: `${UI_ICONS.initiative} Iniziativa` },
+    { key: 'members', label: `${UI_ICONS.group} Gruppo` },
+  ] as { key: Tab, label: string }[]
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
@@ -70,17 +78,17 @@ export default function CampaignPage({
         <button onClick={onBack} style={{
           background: 'none', border: '1px solid #2a2a3a',
           color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
-        }}>← Indietro</button>
+        }}>{UI_ICONS.back} Indietro</button>
         {isMaster ? (
           <button onClick={handleDelete} style={{
             background: 'none', border: '1px solid #e05555',
             color: '#e05555', borderRadius: 8, padding: '6px 12px', fontSize: 13
-          }}>🗑️ Elimina</button>
+          }}>{UI_ICONS.delete} Elimina</button>
         ) : (
           <button onClick={handleLeave} style={{
             background: 'none', border: '1px solid #e05555',
             color: '#e05555', borderRadius: 8, padding: '6px 12px', fontSize: 13
-          }}>🚪 Abbandona</button>
+          }}>{UI_ICONS.logout} Abbandona</button>
         )}
       </div>
 
@@ -100,7 +108,9 @@ export default function CampaignPage({
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
             {isMaster && (
-              <div style={{ fontSize: 10, color: '#c9a84c', marginBottom: 2 }}>👑 Sei il Master</div>
+              <div style={{ fontSize: 10, color: '#c9a84c', marginBottom: 2 }}>
+                {UI_ICONS.master} Sei il Master
+              </div>
             )}
             <div style={{
               fontSize: 13, fontFamily: 'monospace', letterSpacing: 2,
@@ -115,12 +125,7 @@ export default function CampaignPage({
 
         {/* Tab bar */}
         <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', marginBottom: 20 }}>
-          {([
-            { key: 'sessions', label: '📅 Sessioni' },
-            { key: 'notes', label: '📖 Appunti' },
-            { key: 'initiative', label: '⚡ Iniziativa' },
-            { key: 'members', label: '👥 Gruppo' },
-          ] as { key: Tab, label: string }[]).map(t => (
+          {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               flex: 1, padding: '10px 2px',
               background: 'none', border: 'none',

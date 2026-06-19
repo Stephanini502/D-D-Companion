@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { UI_ICONS } from '../data/icons'
 
 interface DialogOptions {
   title: string
@@ -62,7 +63,7 @@ export function useDialog() {
         {/* Icona */}
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 40 }}>
-            {options.danger ? '⚠️' : '❓'}
+            {options.danger ? UI_ICONS.warning : UI_ICONS.question}
           </div>
         </div>
 

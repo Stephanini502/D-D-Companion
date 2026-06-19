@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import { calculateAC, detectArmorType, getArmorCategoryLabel } from '../data/armorTypes'
+import { UI_ICONS } from '../data/icons'
 
 interface Item {
   id: string
@@ -66,7 +67,6 @@ export default function CombatTab({
       .eq('id', characterId)
   }
 
-  // Filtra armature e scudi dall'inventario
   const armors = items.filter(i => {
     const armorType = detectArmorType(i.name, i.notes)
     return armorType && armorType.category !== 'shield'
@@ -80,11 +80,7 @@ export default function CombatTab({
   const equippedArmor = items.find(i => i.id === equippedArmorId) ?? null
   const equippedShield = items.find(i => i.id === equippedShieldId) ?? null
 
-  const totalAC = calculateAC(
-    equippedArmor,
-    equippedShield,
-    desMod
-  )
+  const totalAC = calculateAC(equippedArmor, equippedShield, desMod)
 
   if (loading) return <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento...</p>
 
@@ -117,11 +113,10 @@ export default function CombatTab({
           fontSize: 11, color: '#888', letterSpacing: 1,
           textTransform: 'uppercase', marginBottom: 12, fontWeight: 600
         }}>
-          🛡️ Armatura
+          {UI_ICONS.armorClass} Armatura
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Senza armatura */}
           <div
             onClick={() => {
               setEquippedArmorId(null)
@@ -200,7 +195,7 @@ export default function CombatTab({
           fontSize: 11, color: '#888', letterSpacing: 1,
           textTransform: 'uppercase', marginBottom: 12, fontWeight: 600
         }}>
-          🛡️ Scudo
+          {UI_ICONS.armorClass} Scudo
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -259,10 +254,10 @@ export default function CombatTab({
       {/* Altre stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {[
-          { label: 'Iniziativa', value: mod(character.stats.DES as number), icon: '⚡' },
-          { label: 'Velocità', value: '9 m', icon: '💨' },
-          { label: 'Bonus Competenza', value: '+' + (character.level < 5 ? 2 : character.level < 9 ? 3 : 4), icon: '🎯' },
-          { label: 'Modificatore DES', value: mod(character.stats.DES as number), icon: '🎲' },
+          { label: 'Iniziativa', value: mod(character.stats.DES as number), icon: UI_ICONS.initiative_icon },
+          { label: 'Velocità', value: '9 m', icon: UI_ICONS.speed },
+          { label: 'Bonus Competenza', value: '+' + (character.level < 5 ? 2 : character.level < 9 ? 3 : 4), icon: UI_ICONS.proficiency },
+          { label: 'Modificatore DES', value: mod(character.stats.DES as number), icon: UI_ICONS.dice },
         ].map(item => (
           <div key={item.label} style={{
             background: '#16161f', border: '1px solid #2a2a3a',

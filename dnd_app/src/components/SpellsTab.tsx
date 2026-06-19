@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Spell } from '../models/spell'
+import { getSchoolColor, UI_ICONS } from '../data/icons'
 
 interface CatalogSpell {
   id: string
@@ -12,17 +13,6 @@ interface CatalogSpell {
   duration: string
   description: string
   classes: string[]
-}
-
-const schoolColors: Record<string, string> = {
-  Evocation: '#e05555',
-  Necromancy: '#7c4daa',
-  Illusion: '#4d7caa',
-  Transmutation: '#4caf82',
-  Conjuration: '#c9a84c',
-  Divination: '#5b8dd9',
-  Enchantment: '#d95b8d',
-  Abjuration: '#5bd9c9',
 }
 
 export default function SpellsTab({
@@ -42,6 +32,7 @@ export default function SpellsTab({
   const [search, setSearch] = useState('')
   const [filterLevel, setFilterLevel] = useState<number | 'all'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [justAdded, setJustAdded] = useState<string | null>(null)
 
   async function loadSpells() {
     const { data } = await supabase
@@ -76,6 +67,7 @@ export default function SpellsTab({
   async function handleAdd(spell: CatalogSpell) {
     const alreadyAdded = spells.some(s => s.name === spell.name)
     if (alreadyAdded) return
+
     const { error } = await supabase.from('spells').insert({
       character_id: characterId,
       character_name: characterName,
@@ -86,7 +78,12 @@ export default function SpellsTab({
       range: spell.range,
       description: spell.description
     })
-    if (!error) loadSpells()
+
+    if (!error) {
+      loadSpells()
+      setJustAdded(spell.name)
+      setTimeout(() => setJustAdded(null), 2000)
+    }
   }
 
   async function handleDelete(id: string) {
@@ -120,12 +117,12 @@ export default function SpellsTab({
           fontWeight: 700, fontSize: 14
         }}
       >
-        + Aggiungi Incantesimo
+        {UI_ICONS.add} Aggiungi Incantesimo
       </button>
 
       {spells.length === 0 && (
         <div style={{ textAlign: 'center', color: '#444', padding: 40 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>✨</div>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.spells}</div>
           <p>Nessun incantesimo ancora.</p>
         </div>
       )}
@@ -159,9 +156,9 @@ export default function SpellsTab({
                       {spell.school && (
                         <span style={{
                           fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                          background: (schoolColors[spell.school] ?? '#555') + '33',
-                          color: schoolColors[spell.school] ?? '#888',
-                          border: `1px solid ${(schoolColors[spell.school] ?? '#555')}55`
+                          background: getSchoolColor(spell.school) + '33',
+                          color: getSchoolColor(spell.school),
+                          border: `1px solid ${getSchoolColor(spell.school)}55`
                         }}>
                           {spell.school}
                         </span>
@@ -172,25 +169,27 @@ export default function SpellsTab({
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12 }}>{expanded === spell.id ? '▲' : '▼'}</span>
+                    <span style={{ fontSize: 12, color: '#555' }}>
+                      {expanded === spell.id ? '▲' : '▼'}
+                    </span>
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(spell.id) }}
                       style={{
                         background: 'none', border: 'none',
                         color: '#3a3a4a', fontSize: 18, padding: '0 4px',
-                        transition: 'color 0.2s'
+                        transition: 'color 0.2s', cursor: 'pointer'
                       }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                       onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
-                    >×</button>
+                    >{UI_ICONS.close}</button>
                   </div>
                 </div>
                 {expanded === spell.id && spell.description && (
                   <div style={{
-                    padding: '0 14px 12px', fontSize: 13, color: '#888',
+                    padding: '10px 14px 12px', fontSize: 13, color: '#888',
                     lineHeight: 1.6, borderTop: '1px solid #2a2a3a'
                   }}>
-                    <p style={{ paddingTop: 10 }}>{spell.description}</p>
+                    {spell.description}
                   </div>
                 )}
               </div>
@@ -203,8 +202,7 @@ export default function SpellsTab({
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
-          zIndex: 100, display: 'flex', alignItems: 'flex-end',
-          justifyContent: 'center'
+          zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
         }} onClick={() => setShowModal(false)}>
           <div style={{
             background: '#16161f', borderRadius: '16px 16px 0 0',
@@ -217,10 +215,12 @@ export default function SpellsTab({
               display: 'flex', justifyContent: 'space-between',
               alignItems: 'center', marginBottom: 16
             }}>
-              <h3 style={{ color: '#c9a84c', margin: 0 }}>✨ Scegli Incantesimo</h3>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>
+                {UI_ICONS.spells} Scegli Incantesimo
+              </h3>
               <button onClick={() => setShowModal(false)} style={{
-                background: 'none', border: 'none', color: '#666', fontSize: 22
-              }}>×</button>
+                background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer'
+              }}>{UI_ICONS.close}</button>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -254,6 +254,7 @@ export default function SpellsTab({
               )}
               {!catalogLoading && filteredCatalog.map(spell => {
                 const alreadyAdded = spells.some(s => s.name === spell.name)
+                const wasJustAdded = justAdded === spell.name
                 return (
                   <div key={spell.id} style={{
                     display: 'flex', justifyContent: 'space-between',
@@ -268,8 +269,8 @@ export default function SpellsTab({
                         {spell.school && (
                           <span style={{
                             fontSize: 10, padding: '1px 5px', borderRadius: 3,
-                            background: (schoolColors[spell.school] ?? '#555') + '22',
-                            color: schoolColors[spell.school] ?? '#888',
+                            background: getSchoolColor(spell.school) + '22',
+                            color: getSchoolColor(spell.school),
                           }}>
                             {spell.school}
                           </span>
@@ -285,13 +286,18 @@ export default function SpellsTab({
                       disabled={alreadyAdded}
                       style={{
                         padding: '5px 14px', borderRadius: 6, border: 'none',
-                        background: alreadyAdded ? '#2a2a3a' : 'linear-gradient(135deg, #c9a84c, #a07830)',
-                        color: alreadyAdded ? '#555' : '#0f0f13',
+                        background: wasJustAdded
+                          ? '#4caf82'
+                          : alreadyAdded
+                            ? '#2a2a3a'
+                            : 'linear-gradient(135deg, #c9a84c, #a07830)',
+                        color: alreadyAdded && !wasJustAdded ? '#555' : '#0f0f13',
                         cursor: alreadyAdded ? 'default' : 'pointer',
-                        fontSize: 13, fontWeight: 600, flexShrink: 0
+                        fontSize: 13, fontWeight: 600, flexShrink: 0,
+                        transition: 'background 0.3s'
                       }}
                     >
-                      {alreadyAdded ? '✓' : '+ Aggiungi'}
+                      {wasJustAdded ? `${UI_ICONS.success} Aggiunto` : alreadyAdded ? UI_ICONS.success : `${UI_ICONS.add} Aggiungi`}
                     </button>
                   </div>
                 )

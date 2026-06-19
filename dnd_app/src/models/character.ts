@@ -5,6 +5,7 @@ export interface Stats {
   INT: number
   SAG: number
   CAR: number
+  [key: string]: number
 }
 
 export interface Character {
@@ -17,4 +18,8 @@ export interface Character {
   hp_current: number
   hp_max: number
   stats: Stats
+  image_path?: string
+  perception_proficiency?: boolean
+  equipped_armor?: string
+  skill_proficiencies?: Record<string, boolean>
 }

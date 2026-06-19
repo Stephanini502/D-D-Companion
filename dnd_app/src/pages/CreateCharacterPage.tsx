@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { UI_ICONS } from '../data/icons'
 
 interface CatalogClass {
   id: string
@@ -80,7 +81,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
       justifyContent: 'center', color: '#555'
     }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>⚔️</div>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.combat}</div>
         <p>Caricamento catalogo...</p>
       </div>
     </div>
@@ -114,10 +115,10 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
             color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
           }}
         >
-          ← Annulla
+          {UI_ICONS.back} Annulla
         </button>
         <h2 style={{ color: '#c9a84c', fontSize: 18, margin: 0 }}>
-          ⚔️ Nuovo Personaggio
+          {UI_ICONS.combat} Nuovo Personaggio
         </h2>
         <div style={{ width: 80 }} />
       </div>
@@ -222,9 +223,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
                   onChange={e => updateStat(key, Number(e.target.value))}
                   style={{ width: '100%', textAlign: 'center', fontSize: 18, fontWeight: 700 }}
                 />
-                <div style={{
-                  fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 4
-                }}>
+                <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 4 }}>
                   {Math.floor((val - 10) / 2) >= 0 ? '+' : ''}{Math.floor((val - 10) / 2)}
                 </div>
               </div>
@@ -249,7 +248,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
             fontWeight: 700, fontSize: 15, letterSpacing: 0.5
           }}
         >
-          {loading ? 'Creazione...' : '⚔️ Crea Personaggio'}
+          {loading ? 'Creazione...' : `${UI_ICONS.combat} Crea Personaggio`}
         </button>
 
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import CampaignPage from './CampaignPage'
+import { UI_ICONS } from '../data/icons'
 
 interface Campaign {
   id: string
@@ -140,7 +141,9 @@ export default function CampaignsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h2 style={{ color: '#c9a84c', margin: 0, fontSize: 18 }}>🗺️ Campagne</h2>
+          <h2 style={{ color: '#c9a84c', margin: 0, fontSize: 18 }}>
+            {UI_ICONS.campaign} Campagne
+          </h2>
           <p style={{ color: '#555', fontSize: 12, marginTop: 2 }}>Gestisci le tue avventure</p>
         </div>
       </div>
@@ -150,12 +153,12 @@ export default function CampaignsPage() {
           flex: 1, padding: '12px 0',
           background: 'linear-gradient(135deg, #c9a84c, #a07830)',
           color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14
-        }}>+ Crea Campagna</button>
+        }}>{UI_ICONS.add} Crea Campagna</button>
         <button onClick={() => { setShowJoin(true); setError('') }} style={{
           flex: 1, padding: '12px 0',
           background: '#1e1e2a', border: '1px solid #c9a84c',
           color: '#c9a84c', borderRadius: 8, fontWeight: 700, fontSize: 14
-        }}>🔑 Entra</button>
+        }}>{UI_ICONS.invite} Entra</button>
       </div>
 
       {loading && <p style={{ color: '#555', textAlign: 'center' }}>Caricamento...</p>}
@@ -181,7 +184,7 @@ export default function CampaignsPage() {
                   <span style={{
                     fontSize: 10, padding: '2px 8px', borderRadius: 4,
                     background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-                  }}>👑 Master</span>
+                  }}>{UI_ICONS.master} Master</span>
                 )}
                 <span style={{
                   fontSize: 10, padding: '2px 8px', borderRadius: 4,
@@ -195,7 +198,7 @@ export default function CampaignsPage() {
 
       {!loading && campaigns.length === 0 && (
         <div style={{ textAlign: 'center', color: '#444', marginTop: 60 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🗺️</div>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>{UI_ICONS.campaign}</div>
           <p>Nessuna campagna ancora.</p>
           <p style={{ fontSize: 13, marginTop: 4 }}>Crea una campagna o entra con un codice invito!</p>
         </div>
@@ -205,7 +208,9 @@ export default function CampaignsPage() {
       {showCreate && (
         <div style={modalStyle} onClick={() => setShowCreate(false)}>
           <div style={cardStyle} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#c9a84c', margin: '0 0 20px' }}>+ Crea Campagna</h3>
+            <h3 style={{ color: '#c9a84c', margin: '0 0 20px' }}>
+              {UI_ICONS.add} Crea Campagna
+            </h3>
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Nome *</label>
               <input value={newName} onChange={e => setNewName(e.target.value)}
@@ -237,7 +242,9 @@ export default function CampaignsPage() {
       {showJoin && (
         <div style={modalStyle} onClick={() => setShowJoin(false)}>
           <div style={cardStyle} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#c9a84c', margin: '0 0 20px' }}>🔑 Entra in Campagna</h3>
+            <h3 style={{ color: '#c9a84c', margin: '0 0 20px' }}>
+              {UI_ICONS.invite} Entra in Campagna
+            </h3>
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Codice Invito *</label>
               <input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())}

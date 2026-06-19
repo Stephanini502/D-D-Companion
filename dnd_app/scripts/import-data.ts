@@ -48,6 +48,54 @@ async function importSpells() {
   else console.log(`✓ ${rows.length} incantesimi importati`)
 }
 
+async function importClassTraits() {
+  console.log('Importando tratti di classe...')
+  const classes = await fetchJSON('5e-SRD-Classes.json', BASE_URL_2024)
+
+  const rows: any[] = []
+
+  for (const cls of classes) {
+    const classLevels = await fetchJSON(`5e-SRD-Classes/${cls.index}/levels.json`, BASE_URL_2024).catch(() => null)
+
+    if (!classLevels) continue
+
+    const featuresMap = new Map<string, any>()
+
+    for (const levelData of classLevels) {
+      const levelNum = levelData.level
+      const features = levelData.features ?? []
+
+      for (const feature of features) {
+        if (featuresMap.has(feature.index)) continue
+
+        const detail = await fetchJSON(`5e-SRD-Features/${feature.index}.json`, BASE_URL_2024).catch(() => null)
+        if (!detail) continue
+
+        featuresMap.set(feature.index, {
+          id: `class-${feature.index}`,
+          name: detail.name ?? feature.name,
+          description: detail.desc?.join('\n') ?? '',
+          races: [],
+          classes: [cls.name],
+          level_required: levelNum,
+          data: detail
+        })
+      }
+    }
+
+    rows.push(...featuresMap.values())
+  }
+
+  // Upsert a blocchi di 50
+  for (let i = 0; i < rows.length; i += 50) {
+    const chunk = rows.slice(i, i + 50)
+    const { error } = await supabase.from('catalog_traits').upsert(chunk)
+    if (error) console.error(`Errore tratti classe chunk ${i}:`, error)
+  }
+
+  console.log(`✓ ${rows.length} tratti di classe importati`)
+}
+
 async function importClasses() {
   console.log('Importando classi...')
   const classes = await fetchJSON('5e-SRD-Classes.json', BASE_URL_2024)
@@ -113,6 +161,7 @@ async function main() {
   await importClasses()
   await importRaces()
   await importItems()
+  await importClassTraits()
   console.log('Importazione completata!')
 }
 

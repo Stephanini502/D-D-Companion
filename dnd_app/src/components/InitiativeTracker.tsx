@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useDialog } from './Dialog'
+import { UI_ICONS } from '../data/icons'
 
 interface Combatant {
   id: string
@@ -280,7 +281,7 @@ export default function InitiativeTracker({
                     <button
                       onClick={() => setShowConditions(showConditions === c.id ? null : c.id)}
                       style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', padding: 4 }}
-                    >🔴</button>
+                    >{UI_ICONS.initiative_extras}</button>
                     <button
                       onClick={() => handleRemove(c.id)}
                       style={{ background: 'none', border: 'none', color: '#3a3a4a', fontSize: 18, cursor: 'pointer', padding: 4 }}

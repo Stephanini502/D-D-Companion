@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
+import { getClassIcon, getSchoolColor, UI_ICONS } from '../data/icons'
 
 const BUCKET = 'characters-images'
-
-const classIcons: Record<string, string> = {
-  Barbarian: '🪓', Bard: '🎵', Cleric: '✝️', Druid: '🌿',
-  Fighter: '⚔️', Monk: '👊', Paladin: '🛡️', Ranger: '🏹',
-  Rogue: '🗡️', Sorcerer: '✨', Warlock: '👁️', Wizard: '📚'
-}
-
 interface Character {
   id: string
   name: string
@@ -19,19 +14,84 @@ interface Character {
   hp_max: number
   stats: Record<string, number>
   image_path?: string
+  perception_proficiency?: boolean
+}
+
+interface Item {
+  id: string
+  name: string
+  notes: string
+  weight: number
+  quantity: number
+  is_custom?: boolean
+}
+
+interface Spell {
+  id: string
+  name: string
+  level: number
+  school: string
+  cast_time: string
+  range: string
+}
+
+interface CatalogItem {
+  id: string
+  name: string
+  category: string
+  cost: string
+  weight: number
+  description: string
+  damage: string
+  armor_class: string
+}
+
+interface CatalogSpell {
+  id: string
+  name: string
+  level: number
+  school: string
+  cast_time: string
+  range: string
 }
 
 export default function CharacterPreview({
   characterId,
-  onClose
+  onClose,
+  isMaster = false
 }: {
   characterId: string
   onClose: () => void
+  isMaster?: boolean
 }) {
   const [character, setCharacter] = useState<Character | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showFullImage, setShowFullImage] = useState(false)
+  const [tab, setTab] = useState<'stats' | 'inventory' | 'spells'>('stats')
+  const [items, setItems] = useState<Item[]>([])
+  const [spells, setSpells] = useState<Spell[]>([])
+
+  // Modali inventario
+  const [showCatalogModal, setShowCatalogModal] = useState(false)
+  const [showCustomModal, setShowCustomModal] = useState(false)
+  const [catalog, setCatalog] = useState<CatalogItem[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [catalogCategory, setCatalogCategory] = useState('all')
+  const [categories, setCategories] = useState<string[]>([])
+  const [customName, setCustomName] = useState('')
+  const [customWeight, setCustomWeight] = useState('')
+  const [customNotes, setCustomNotes] = useState('')
+  const [customDamage, setCustomDamage] = useState('')
+  const [customAC, setCustomAC] = useState('')
+
+  // Modale magie
+  const [showSpellModal, setShowSpellModal] = useState(false)
+  const [spellCatalog, setSpellCatalog] = useState<CatalogSpell[]>([])
+  const [spellCatalogLoading, setSpellCatalogLoading] = useState(false)
+  const [spellSearch, setSpellSearch] = useState('')
+  const [spellLevelFilter, setSpellLevelFilter] = useState<number | 'all'>('all')
 
   useEffect(() => {
     async function load() {
@@ -52,12 +112,139 @@ export default function CharacterPreview({
       setLoading(false)
     }
     load()
+    loadItems()
+    loadSpells()
   }, [characterId])
+
+  async function loadItems() {
+    const { data } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .eq('character_id', characterId)
+      .order('created_at', { ascending: true })
+    setItems(data || [])
+  }
+
+  async function loadSpells() {
+    const { data } = await supabase
+      .from('spells')
+      .select('*')
+      .eq('character_id', characterId)
+      .order('level', { ascending: true })
+    setSpells(data || [])
+  }
+
+  async function loadCatalog() {
+    setCatalogLoading(true)
+    const { data } = await supabase
+      .from('catalog_items')
+      .select('id, name, category, cost, weight, description, damage, armor_class')
+      .order('category').order('name')
+    if (data) {
+      setCatalog(data)
+      const uniqueCategories = [...new Set(data.map(i => i.category).filter(Boolean))]
+      setCategories(uniqueCategories.sort())
+    }
+    setCatalogLoading(false)
+  }
+
+  async function loadSpellCatalog() {
+    if (!character) return
+    setSpellCatalogLoading(true)
+    const { data } = await supabase
+      .from('catalog_spells')
+      .select('id, name, level, school, cast_time, range')
+      .filter('classes', 'cs', `["${character.character_class}"]`)
+      .order('level').order('name')
+    if (data) setSpellCatalog(data)
+    setSpellCatalogLoading(false)
+  }
+
+  useEffect(() => { if (showCatalogModal) loadCatalog() }, [showCatalogModal])
+  useEffect(() => { if (showSpellModal) loadSpellCatalog() }, [showSpellModal, character])
+
+  async function handleAddFromCatalog(item: CatalogItem) {
+    await supabase.from('inventory_items').insert({
+      character_id: characterId,
+      character_name: character?.name,
+      name: item.name,
+      quantity: 1,
+      weight: item.weight ?? 0,
+      notes: [
+        item.damage ? `Danno: ${item.damage}` : '',
+        item.armor_class ? `CA: ${item.armor_class}` : '',
+        item.cost ? `Costo: ${item.cost}` : '',
+      ].filter(Boolean).join(' · ')
+    })
+    loadItems()
+  }
+
+  async function handleAddCustomItem() {
+    if (!customName) return
+    const notes = [
+      customDamage ? `Danno: ${customDamage}` : '',
+      customAC ? `CA: ${customAC}` : '',
+      customNotes
+    ].filter(Boolean).join(' · ')
+    await supabase.from('inventory_items').insert({
+      character_id: characterId,
+      character_name: character?.name,
+      name: customName, quantity: 1,
+      weight: customWeight ? Number(customWeight) : 0,
+      notes, is_custom: true
+    })
+    setCustomName(''); setCustomWeight(''); setCustomNotes('')
+    setCustomDamage(''); setCustomAC('')
+    setShowCustomModal(false)
+    loadItems()
+  }
+
+  async function handleAddSpell(spell: CatalogSpell) {
+    const already = spells.some(s => s.name === spell.name)
+    if (already) return
+    await supabase.from('spells').insert({
+      character_id: characterId,
+      character_name: character?.name,
+      name: spell.name, level: spell.level,
+      school: spell.school, cast_time: spell.cast_time, range: spell.range,
+    })
+    loadSpells()
+  }
+
+  async function updateQuantity(id: string, delta: number) {
+    const item = items.find(i => i.id === id)
+    if (!item) return
+    const newQty = Math.max(0, item.quantity + delta)
+    await supabase.from('inventory_items').update({ quantity: newQty }).eq('id', id)
+    loadItems()
+  }
+
+  async function deleteItem(id: string) {
+    await supabase.from('inventory_items').delete().eq('id', id)
+    loadItems()
+  }
+
+  async function deleteSpell(id: string) {
+    await supabase.from('spells').delete().eq('id', id)
+    loadSpells()
+  }
 
   function mod(val: number) {
     const m = Math.floor((val - 10) / 2)
     return (m >= 0 ? '+' : '') + m
   }
+
+  const filteredCatalog = catalog.filter(i => {
+    const matchSearch = i.name.toLowerCase().includes(catalogSearch.toLowerCase())
+    const matchCategory = catalogCategory === 'all' || i.category === catalogCategory
+    return matchSearch && matchCategory
+  })
+
+  const filteredSpellCatalog = spellCatalog.filter(s => {
+    const matchSearch = s.name.toLowerCase().includes(spellSearch.toLowerCase())
+    const matchLevel = spellLevelFilter === 'all' || s.level === spellLevelFilter
+    return matchSearch && matchLevel
+  })
 
   if (loading) return (
     <div style={{
@@ -73,26 +260,35 @@ export default function CharacterPreview({
 
   const hpPercent = Math.round((character.hp_current / character.hp_max) * 100)
   const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
+  const sagMod = Math.floor((character.stats.SAG - 10) / 2)
+  const profBonus = getProficiencyBonus(character.level)
+  const passivePerception = getPassivePerception(sagMod, profBonus, character.perception_proficiency ?? false)
+  const darkvision = getDarkvision(character.race)
+
+  const modalBase = {
+    position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.85)',
+    zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+  }
+  const modalContent = {
+    background: '#16161f', borderRadius: '16px 16px 0 0',
+    padding: 20, width: '100%', maxWidth: 480,
+    maxHeight: '85vh', display: 'flex', flexDirection: 'column' as const,
+    border: '1px solid #2a2a3a', borderBottom: 'none'
+  }
 
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 300,
-          background: 'rgba(0,0,0,0.9)',
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
-        }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            background: '#16161f', borderRadius: '20px 20px 0 0',
-            width: '100%', maxWidth: 480,
-            maxHeight: '90vh', overflowY: 'auto',
-            border: '1px solid #2a2a3a', borderBottom: 'none'
-          }}
-        >
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.9)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+      }}>
+        <div onClick={e => e.stopPropagation()} style={{
+          background: '#16161f', borderRadius: '20px 20px 0 0',
+          width: '100%', maxWidth: 480,
+          maxHeight: '90vh', overflowY: 'auto',
+          border: '1px solid #2a2a3a', borderBottom: 'none'
+        }}>
           {/* Handle */}
           <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
             <div style={{ width: 40, height: 4, borderRadius: 2, background: '#3a3a4a' }} />
@@ -104,7 +300,7 @@ export default function CharacterPreview({
             padding: '12px 20px 0'
           }}>
             <h2 style={{ color: '#c9a84c', margin: 0, fontSize: 18 }}>
-              👤 Scheda Personaggio
+              {isMaster ? '👑 Vista Master' : '👤 Scheda Personaggio'}
             </h2>
             <button onClick={onClose} style={{
               background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer'
@@ -114,106 +310,426 @@ export default function CharacterPreview({
           <div style={{ padding: 20 }}>
 
             {/* Immagine + info */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'flex-start' }}>
-              <div
-                onClick={() => imageUrl && setShowFullImage(true)}
-                style={{
-                  width: 90, height: 110, borderRadius: 12, flexShrink: 0,
-                  background: '#1e1e2a', border: '2px solid #2a2a3a',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', cursor: imageUrl ? 'zoom-in' : 'default'
-                }}
-              >
+            <div style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}>
+              <div onClick={() => imageUrl && setShowFullImage(true)} style={{
+                width: 90, height: 110, borderRadius: 12, flexShrink: 0,
+                background: '#1e1e2a', border: '2px solid #2a2a3a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden', cursor: imageUrl ? 'zoom-in' : 'default'
+              }}>
                 {imageUrl ? (
                   <img src={imageUrl} alt={character.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <span style={{ fontSize: 40 }}>{classIcons[character.character_class] ?? '🧙'}</span>
+                  <span style={{ fontSize: 40 }}>{getClassIcon(character.character_class)}</span>
                 )}
               </div>
-
               <div style={{ flex: 1 }}>
                 <h3 style={{ color: '#e8e0d0', margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>
                   {character.name}
                 </h3>
-                <p style={{ color: '#888', fontSize: 13, margin: '0 0 12px' }}>
+                <p style={{ color: '#888', fontSize: 13, margin: '0 0 10px' }}>
                   {character.race} · {character.character_class} · Livello {character.level}
                 </p>
-
-                {/* Barra PF */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
-                      {character.hp_current} / {character.hp_max}
-                    </span>
-                  </div>
-                  <div style={{ height: 6, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${hpPercent}%`,
-                      background: hpColor, borderRadius: 3
-                    }} />
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
+                    {character.hp_current} / {character.hp_max}
+                  </span>
+                </div>
+                <div style={{ height: 6, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${hpPercent}%`, background: hpColor, borderRadius: 3 }} />
                 </div>
               </div>
             </div>
 
-            {/* Statistiche */}
-            <div style={{
-              fontSize: 11, color: '#888', letterSpacing: 1,
-              textTransform: 'uppercase', marginBottom: 10, fontWeight: 600
-            }}>
-              Caratteristiche
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
-              {Object.entries(character.stats).map(([key, val]) => (
-                <div key={key} style={{
-                  background: '#1e1e2a', border: '1px solid #2a2a3a',
-                  borderRadius: 10, padding: '10px 8px', textAlign: 'center'
-                }}>
-                  <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase' }}>
-                    {key}
-                  </div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', lineHeight: 1.2, marginTop: 4 }}>
-                    {val}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>
-                    {mod(val)}
-                  </div>
-                </div>
+            {/* Tab bar */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', marginBottom: 16 }}>
+              {([
+                { key: 'stats', label: '{UI_ICONS.stats} Stats' },
+                { key: 'inventory', label: '{UI_ICONS.inventory} Inventario' },
+                { key: 'spells', label: '{UI_ICONS.spells} Magie' },
+              ] as const).map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)} style={{
+                  flex: 1, padding: '10px 4px',
+                  background: 'none', border: 'none',
+                  borderBottom: tab === t.key ? '2px solid #c9a84c' : '2px solid transparent',
+                  color: tab === t.key ? '#c9a84c' : '#555',
+                  fontWeight: tab === t.key ? 700 : 400,
+                  cursor: 'pointer', fontSize: 12
+                }}>{t.label}</button>
               ))}
             </div>
 
-            {/* Stats combattimento */}
-            <div style={{
-              fontSize: 11, color: '#888', letterSpacing: 1,
-              textTransform: 'uppercase', marginBottom: 10, fontWeight: 600
-            }}>
-              Combattimento
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {[
-                { label: 'Classe Armatura', value: 10 + Math.floor((character.stats.DES - 10) / 2), icon: '🛡️' },
-                { label: 'Iniziativa', value: mod(character.stats.DES), icon: '⚡' },
-                { label: 'Velocità', value: '9 m', icon: '💨' },
-                { label: 'Bonus Competenza', value: '+' + (character.level < 5 ? 2 : character.level < 9 ? 3 : 4), icon: '🎯' },
-              ].map(item => (
-                <div key={item.label} style={{
+            {/* Tab Stats */}
+            {tab === 'stats' && (
+              <>
+                <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>
+                  Caratteristiche
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {Object.entries(character.stats).map(([key, val]) => (
+                    <div key={key} style={{
+                      background: '#1e1e2a', border: '1px solid #2a2a3a',
+                      borderRadius: 10, padding: '10px 8px', textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase' }}>{key}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', lineHeight: 1.2, marginTop: 4 }}>{val}</div>
+                      <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>{mod(val)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>
+                  Combattimento
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {[
+                    { label: 'Classe Armatura', value: 10 + Math.floor((character.stats.DES - 10) / 2), icon: UI_ICONS.armorClass },
+                    { label: 'Iniziativa', value: mod(character.stats.DES), icon: UI_ICONS.initiative_icon },
+                    { label: 'Velocità', value: '9 m', icon: UI_ICONS.speed },
+                    { label: 'Bonus Competenza', value: '+' + profBonus, icon: UI_ICONS.proficiency },
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      background: '#1e1e2a', border: '1px solid #2a2a3a',
+                      borderRadius: 10, padding: 12, textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>{item.icon}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: '#c9a84c' }}>{item.value}</div>
+                      <div style={{ fontSize: 10, color: '#666', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Percezione passiva */}
+                <div style={{
                   background: '#1e1e2a', border: '1px solid #2a2a3a',
-                  borderRadius: 10, padding: 12, textAlign: 'center'
+                  borderRadius: 10, padding: '12px 14px',
+                  display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8
                 }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>{item.icon}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#c9a84c' }}>{item.value}</div>
-                  <div style={{ fontSize: 10, color: '#666', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {item.label}
+                  <div style={{ fontSize: 28 }}>👁️</div>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                      Percezione Passiva
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: '#c9a84c' }}>{passivePerception}</div>
+                    <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
+                      10 {sagMod >= 0 ? '+' : ''}{sagMod} SAG
+                      {character.perception_proficiency ? ` + ${profBonus} comp.` : ''}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Scurovisione */}
+                <div style={{
+                  background: '#1e1e2a', border: '1px solid #2a2a3a',
+                  borderRadius: 10, padding: '12px 14px',
+                  display: 'flex', alignItems: 'center', gap: 14
+                }}>
+                  <div style={{ fontSize: 28 }}>{UI_ICONS.darkvision}</div>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                      Scurovisione
+                    </div>
+                    {darkvision > 0 ? (
+                      <>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: darkvision === 36 ? '#7c4daa' : '#c9a84c' }}>
+                          {darkvision} m
+                        </div>
+                        <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
+                          {darkvision === 36 ? 'Scurovisione superiore' : 'Scurovisione standard'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: '#3a3a4a' }}>Nessuna</div>
+                        <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{character.race} non ha scurovisione</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Tab Inventario */}
+            {tab === 'inventory' && (
+              <div>
+                {isMaster && (
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                    <button onClick={() => setShowCatalogModal(true)} style={{
+                      flex: 1, padding: '10px 0',
+                      background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+                      color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13
+                    }}>+ Dal Catalogo</button>
+                    <button onClick={() => setShowCustomModal(true)} style={{
+                      flex: 1, padding: '10px 0',
+                      background: '#1e1e2a', border: '1px solid #c9a84c',
+                      color: '#c9a84c', borderRadius: 8, fontWeight: 700, fontSize: 13
+                    }}>✏️ Personalizzato</button>
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {items.length === 0 && (
+                    <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Inventario vuoto.</p>
+                  )}
+                  {items.map(item => (
+                    <div key={item.id} style={{
+                      background: '#1e1e2a', border: '1px solid #2a2a3a',
+                      borderRadius: 10, padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 10
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e8e0d0' }}>{item.name}</span>
+                          {item.is_custom && (
+                            <span style={{
+                              fontSize: 9, padding: '1px 5px', borderRadius: 3,
+                              background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
+                            }}>custom</span>
+                          )}
+                        </div>
+                        {item.notes && (
+                          <div style={{ fontSize: 12, color: '#666', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.notes}
+                          </div>
+                        )}
+                      </div>
+                      {isMaster ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => updateQuantity(item.id, -1)} style={{
+                            width: 26, height: 26, borderRadius: 6,
+                            background: '#2a2a3a', border: '1px solid #3a3a4a',
+                            color: '#e8e0d0', fontSize: 14, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                          }}>−</button>
+                          <span style={{ minWidth: 20, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#c9a84c' }}>
+                            {item.quantity}
+                          </span>
+                          <button onClick={() => updateQuantity(item.id, +1)} style={{
+                            width: 26, height: 26, borderRadius: 6,
+                            background: '#2a2a3a', border: '1px solid #3a3a4a',
+                            color: '#e8e0d0', fontSize: 14, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                          }}>+</button>
+                          <button onClick={() => deleteItem(item.id)} style={{
+                            background: 'none', border: 'none', color: '#3a3a4a', fontSize: 18, cursor: 'pointer'
+                          }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
+                          >×</button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 13, color: '#c9a84c', fontWeight: 700, flexShrink: 0 }}>
+                          x{item.quantity}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tab Magie */}
+            {tab === 'spells' && (
+              <div>
+                {isMaster && (
+                  <button onClick={() => setShowSpellModal(true)} style={{
+                    width: '100%', padding: '10px 0', marginBottom: 16,
+                    background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+                    color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13
+                  }}>+ Aggiungi Incantesimo</button>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {spells.length === 0 && (
+                    <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun incantesimo.</p>
+                  )}
+                  {spells.map(spell => (
+                    <div key={spell.id} style={{
+                      background: '#1e1e2a', border: '1px solid #2a2a3a',
+                      borderRadius: 10, padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 10
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e8e0d0' }}>{spell.name}</span>
+                          {spell.school && (
+                            <span style={{
+                              fontSize: 9, padding: '1px 5px', borderRadius: 3,
+                              background: (getSchoolColor(spell.school) ?? '#555') + '22',
+                              color: getSchoolColor(spell.school) ?? '#888',
+                              border: `1px solid ${(getSchoolColor(spell.school) ?? '#555')}44`
+                            }}>{spell.school}</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                          {spell.level === 0 ? 'Trucchetto' : `Liv. ${spell.level}`}
+                          {spell.cast_time ? ` · ${spell.cast_time}` : ''}
+                        </div>
+                      </div>
+                      {isMaster && (
+                        <button onClick={() => deleteSpell(spell.id)} style={{
+                          background: 'none', border: 'none', color: '#3a3a4a', fontSize: 18, cursor: 'pointer', flexShrink: 0
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
+                          onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
+                        >×</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
       </div>
+
+      {/* Modale catalogo oggetti */}
+      {showCatalogModal && (
+        <div style={modalBase} onClick={() => setShowCatalogModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>🎒 Scegli Oggetto</h3>
+              <button onClick={() => setShowCatalogModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input placeholder="Cerca..." value={catalogSearch}
+                onChange={e => setCatalogSearch(e.target.value)} style={{ flex: 1 }} autoFocus />
+              <select value={catalogCategory} onChange={e => setCatalogCategory(e.target.value)} style={{ width: 120 }}>
+                <option value="all">Tutte</option>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <p style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
+              {catalogLoading ? 'Caricamento...' : `${filteredCatalog.length} oggetti`}
+            </p>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {filteredCatalog.map(item => (
+                <div key={item.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 0', borderBottom: '1px solid #1e1e2a'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>{item.name}</div>
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                      {item.category}{item.cost ? ` · ${item.cost}` : ''}{item.weight ? ` · ${item.weight}kg` : ''}
+                      {item.damage ? ` · ${item.damage}` : ''}{item.armor_class ? ` · CA${item.armor_class}` : ''}
+                    </div>
+                  </div>
+                  <button onClick={() => handleAddFromCatalog(item)} style={{
+                    padding: '5px 14px', borderRadius: 6, border: 'none',
+                    background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+                    color: '#0f0f13', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0
+                  }}>+ Aggiungi</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale oggetto personalizzato */}
+      {showCustomModal && (
+        <div style={modalBase} onClick={() => setShowCustomModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>✏️ Oggetto Personalizzato</h3>
+              <button onClick={() => setShowCustomModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <input placeholder="Nome oggetto *" value={customName}
+                onChange={e => setCustomName(e.target.value)}
+                style={{ width: '100%', marginBottom: 8 }} autoFocus />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <input placeholder="Peso (kg)" type="number" value={customWeight}
+                  onChange={e => setCustomWeight(e.target.value)} />
+                <input placeholder="Danno (es. 1d6)" value={customDamage}
+                  onChange={e => setCustomDamage(e.target.value)} />
+              </div>
+              <input placeholder="CA (es. 14)" value={customAC}
+                onChange={e => setCustomAC(e.target.value)}
+                style={{ width: '100%', marginBottom: 8 }} />
+              <textarea placeholder="Note e descrizione..." value={customNotes}
+                onChange={e => setCustomNotes(e.target.value)}
+                rows={3} style={{ width: '100%', resize: 'vertical', marginBottom: 16 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleAddCustomItem} style={{
+                flex: 1, padding: '12px 0',
+                background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+                color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700
+              }}>+ Aggiungi</button>
+              <button onClick={() => setShowCustomModal(false)} style={{
+                padding: '12px 16px', background: 'none',
+                border: '1px solid #2a2a3a', color: '#888', borderRadius: 8
+              }}>Annulla</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale magie */}
+      {showSpellModal && (
+        <div style={modalBase} onClick={() => setShowSpellModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>✨ Scegli Incantesimo</h3>
+              <button onClick={() => setShowSpellModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input placeholder="Cerca..." value={spellSearch}
+                onChange={e => setSpellSearch(e.target.value)} style={{ flex: 1 }} autoFocus />
+              <select value={spellLevelFilter}
+                onChange={e => setSpellLevelFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                style={{ width: 110 }}>
+                <option value="all">Tutti</option>
+                <option value={0}>Trucchetti</option>
+                {[1,2,3,4,5,6,7,8,9].map(l => <option key={l} value={l}>Liv. {l}</option>)}
+              </select>
+            </div>
+            <p style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
+              {spellCatalogLoading ? 'Caricamento...' : `${filteredSpellCatalog.length} incantesimi per ${character.character_class}`}
+            </p>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {spellCatalogLoading && <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento...</p>}
+              {!spellCatalogLoading && filteredSpellCatalog.map(spell => {
+                const alreadyAdded = spells.some(s => s.name === spell.name)
+                return (
+                  <div key={spell.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 0', borderBottom: '1px solid #1e1e2a'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>{spell.name}</span>
+                        {spell.school && (
+                          <span style={{
+                            fontSize: 9, padding: '1px 5px', borderRadius: 3,
+                            background: (getSchoolColor(spell.school) ?? '#555') + '22',
+                            color: getSchoolColor(spell.school) ?? '#888',
+                          }}>{spell.school}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                        {spell.level === 0 ? 'Trucchetto' : `Liv. ${spell.level}`} · {spell.cast_time}
+                      </div>
+                    </div>
+                    <button onClick={() => handleAddSpell(spell)} disabled={alreadyAdded} style={{
+                      padding: '5px 14px', borderRadius: 6, border: 'none',
+                      background: alreadyAdded ? '#2a2a3a' : 'linear-gradient(135deg, #c9a84c, #a07830)',
+                      color: alreadyAdded ? '#555' : '#0f0f13',
+                      cursor: alreadyAdded ? 'default' : 'pointer',
+                      fontSize: 13, fontWeight: 600, flexShrink: 0
+                    }}>
+                      {alreadyAdded ? '✓' : '+ Aggiungi'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen immagine */}
       {showFullImage && imageUrl && (
