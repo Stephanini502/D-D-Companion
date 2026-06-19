@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
-import { getClassIcon, getSchoolColor, UI_ICONS } from '../data/icons'
+import { getClassIcon, getSchoolColor, getCategoryIcon, UI_ICONS } from '../data/icons'
+import { SKILLS, getSkillBonus, formatBonus } from '../data/skills'
 
 const BUCKET = 'characters-images'
+
 interface Character {
   id: string
   name: string
@@ -55,6 +57,19 @@ interface CatalogSpell {
   range: string
 }
 
+interface Trait {
+  id: string
+  name: string
+  description: string
+  level_required?: number
+}
+
+interface Talent {
+  id: string
+  name: string
+  description: string
+}
+
 export default function CharacterPreview({
   characterId,
   onClose,
@@ -68,11 +83,17 @@ export default function CharacterPreview({
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showFullImage, setShowFullImage] = useState(false)
-  const [tab, setTab] = useState<'stats' | 'inventory' | 'spells'>('stats')
-  const [items, setItems] = useState<Item[]>([])
-  const [spells, setSpells] = useState<Spell[]>([])
+  const [tab, setTab] = useState<'stats' | 'abilities' | 'inventory' | 'spells'>('stats')
 
-  // Modali inventario
+  // Abilità
+  const [skillProficiencies, setSkillProficiencies] = useState<Record<string, boolean>>({})
+  const [traits, setTraits] = useState<Trait[]>([])
+  const [talents, setTalents] = useState<Talent[]>([])
+  const [abilitySection, setAbilitySection] = useState<'skills' | 'traits' | 'talents'>('skills')
+  const [expandedTrait, setExpandedTrait] = useState<string | null>(null)
+
+  // Inventario
+  const [items, setItems] = useState<Item[]>([])
   const [showCatalogModal, setShowCatalogModal] = useState(false)
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
@@ -85,13 +106,16 @@ export default function CharacterPreview({
   const [customNotes, setCustomNotes] = useState('')
   const [customDamage, setCustomDamage] = useState('')
   const [customAC, setCustomAC] = useState('')
+  const [justAddedItem, setJustAddedItem] = useState<string | null>(null)
 
-  // Modale magie
+  // Magie
+  const [spells, setSpells] = useState<Spell[]>([])
   const [showSpellModal, setShowSpellModal] = useState(false)
   const [spellCatalog, setSpellCatalog] = useState<CatalogSpell[]>([])
   const [spellCatalogLoading, setSpellCatalogLoading] = useState(false)
   const [spellSearch, setSpellSearch] = useState('')
   const [spellLevelFilter, setSpellLevelFilter] = useState<number | 'all'>('all')
+  const [justAddedSpell, setJustAddedSpell] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -102,12 +126,35 @@ export default function CharacterPreview({
         .single()
       if (data) {
         setCharacter(data)
+        if (data.skill_proficiencies) setSkillProficiencies(data.skill_proficiencies)
         if (data.image_path) {
-          const url = supabase.storage
-            .from(BUCKET)
-            .getPublicUrl(data.image_path).data.publicUrl
+          const url = supabase.storage.from(BUCKET).getPublicUrl(data.image_path).data.publicUrl
           setImageUrl(url + '?t=' + Date.now())
         }
+
+        // Tratti razziali
+        const { data: raceTraits } = await supabase
+          .from('catalog_traits')
+          .select('id, name, description, level_required')
+          .filter('races', 'cs', `["${data.race}"]`)
+
+        // Tratti di classe
+        const { data: classTraits } = await supabase
+          .from('catalog_traits')
+          .select('id, name, description, level_required')
+          .filter('classes', 'cs', `["${data.character_class}"]`)
+          .lte('level_required', data.level)
+          .order('level_required', { ascending: true })
+
+        setTraits([...(raceTraits ?? []), ...(classTraits ?? [])])
+
+        // Talenti
+        const { data: talentData } = await supabase
+          .from('character_talents')
+          .select('*')
+          .eq('character_id', characterId)
+          .order('created_at', { ascending: true })
+        if (talentData) setTalents(talentData)
       }
       setLoading(false)
     }
@@ -164,19 +211,24 @@ export default function CharacterPreview({
   useEffect(() => { if (showSpellModal) loadSpellCatalog() }, [showSpellModal, character])
 
   async function handleAddFromCatalog(item: CatalogItem) {
-    await supabase.from('inventory_items').insert({
-      character_id: characterId,
-      character_name: character?.name,
-      name: item.name,
-      quantity: 1,
-      weight: item.weight ?? 0,
-      notes: [
-        item.damage ? `Danno: ${item.damage}` : '',
-        item.armor_class ? `CA: ${item.armor_class}` : '',
-        item.cost ? `Costo: ${item.cost}` : '',
-      ].filter(Boolean).join(' · ')
-    })
+    const existing = items.find(i => i.name === item.name)
+    if (existing) {
+      await supabase.from('inventory_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+    } else {
+      await supabase.from('inventory_items').insert({
+        character_id: characterId,
+        character_name: character?.name,
+        name: item.name, quantity: 1, weight: item.weight ?? 0,
+        notes: [
+          item.damage ? `Danno: ${item.damage}` : '',
+          item.armor_class ? `CA: ${item.armor_class}` : '',
+          item.cost ? `Costo: ${item.cost}` : '',
+        ].filter(Boolean).join(' · ')
+      })
+    }
     loadItems()
+    setJustAddedItem(item.name)
+    setTimeout(() => setJustAddedItem(null), 2000)
   }
 
   async function handleAddCustomItem() {
@@ -186,13 +238,19 @@ export default function CharacterPreview({
       customAC ? `CA: ${customAC}` : '',
       customNotes
     ].filter(Boolean).join(' · ')
-    await supabase.from('inventory_items').insert({
-      character_id: characterId,
-      character_name: character?.name,
-      name: customName, quantity: 1,
-      weight: customWeight ? Number(customWeight) : 0,
-      notes, is_custom: true
-    })
+    const existing = items.find(i => i.name === customName)
+    if (existing) {
+      await supabase.from('inventory_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+    } else {
+      await supabase.from('inventory_items').insert({
+        character_id: characterId, character_name: character?.name,
+        name: customName, quantity: 1,
+        weight: customWeight ? Number(customWeight) : 0,
+        notes, is_custom: true
+      })
+    }
+    setJustAddedItem(customName)
+    setTimeout(() => setJustAddedItem(null), 2000)
     setCustomName(''); setCustomWeight(''); setCustomNotes('')
     setCustomDamage(''); setCustomAC('')
     setShowCustomModal(false)
@@ -203,12 +261,13 @@ export default function CharacterPreview({
     const already = spells.some(s => s.name === spell.name)
     if (already) return
     await supabase.from('spells').insert({
-      character_id: characterId,
-      character_name: character?.name,
+      character_id: characterId, character_name: character?.name,
       name: spell.name, level: spell.level,
       school: spell.school, cast_time: spell.cast_time, range: spell.range,
     })
     loadSpells()
+    setJustAddedSpell(spell.name)
+    setTimeout(() => setJustAddedSpell(null), 2000)
   }
 
   async function updateQuantity(id: string, delta: number) {
@@ -264,6 +323,8 @@ export default function CharacterPreview({
   const profBonus = getProficiencyBonus(character.level)
   const passivePerception = getPassivePerception(sagMod, profBonus, character.perception_proficiency ?? false)
   const darkvision = getDarkvision(character.race)
+  const raceTraits = traits.filter(t => !t.level_required)
+  const classTraits = traits.filter(t => t.level_required && t.level_required > 0)
 
   const modalBase = {
     position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.85)',
@@ -300,11 +361,11 @@ export default function CharacterPreview({
             padding: '12px 20px 0'
           }}>
             <h2 style={{ color: '#c9a84c', margin: 0, fontSize: 18 }}>
-              {isMaster ? '👑 Vista Master' : '👤 Scheda Personaggio'}
+              {isMaster ? `${UI_ICONS.master} Vista Master` : `${UI_ICONS.character} Scheda Personaggio`}
             </h2>
             <button onClick={onClose} style={{
               background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer'
-            }}>×</button>
+            }}>{UI_ICONS.close}</button>
           </div>
 
           <div style={{ padding: 20 }}>
@@ -346,17 +407,18 @@ export default function CharacterPreview({
             {/* Tab bar */}
             <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', marginBottom: 16 }}>
               {([
-                { key: 'stats', label: `${UI_ICONS.stats} Stats` },
-                { key: 'inventory', label: `${UI_ICONS.inventory} Inventario` },
+                { key: 'stats', label: '📊 Stats' },
+                { key: 'abilities', label: '🎯 Abilità' },
+                { key: 'inventory', label: `${UI_ICONS.inventory} Zaino` },
                 { key: 'spells', label: `${UI_ICONS.spells} Magie` },
               ] as const).map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)} style={{
-                  flex: 1, padding: '10px 4px',
+                  flex: 1, padding: '10px 2px',
                   background: 'none', border: 'none',
                   borderBottom: tab === t.key ? '2px solid #c9a84c' : '2px solid transparent',
                   color: tab === t.key ? '#c9a84c' : '#555',
                   fontWeight: tab === t.key ? 700 : 400,
-                  cursor: 'pointer', fontSize: 12
+                  cursor: 'pointer', fontSize: 11
                 }}>{t.label}</button>
               ))}
             </div>
@@ -407,7 +469,7 @@ export default function CharacterPreview({
                   borderRadius: 10, padding: '12px 14px',
                   display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8
                 }}>
-                  <div style={{ fontSize: 28 }}>👁️</div>
+                  <div style={{ fontSize: 28 }}>{UI_ICONS.perception}</div>
                   <div>
                     <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
                       Percezione Passiva
@@ -451,27 +513,184 @@ export default function CharacterPreview({
               </>
             )}
 
+            {/* Tab Abilità */}
+            {tab === 'abilities' && (
+              <div>
+                {/* Switcher */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                  {([
+                    { key: 'skills', label: '🎯 Abilità' },
+                    { key: 'traits', label: '⭐ Tratti' },
+                    { key: 'talents', label: `${UI_ICONS.spells} Talenti` },
+                  ] as const).map(s => (
+                    <button key={s.key} onClick={() => setAbilitySection(s.key)} style={{
+                      flex: 1, padding: '8px 4px',
+                      background: abilitySection === s.key ? '#c9a84c22' : '#1e1e2a',
+                      border: `1px solid ${abilitySection === s.key ? '#c9a84c' : '#2a2a3a'}`,
+                      color: abilitySection === s.key ? '#c9a84c' : '#555',
+                      borderRadius: 8, fontWeight: abilitySection === s.key ? 700 : 400,
+                      cursor: 'pointer', fontSize: 12
+                    }}>{s.label}</button>
+                  ))}
+                </div>
+
+                {/* Abilità */}
+                {abilitySection === 'skills' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>
+                      Bonus competenza: <strong style={{ color: '#c9a84c' }}>+{profBonus}</strong>
+                    </div>
+                    {SKILLS.map(skill => {
+                      const isProficient = skillProficiencies[skill.name] ?? false
+                      const bonus = getSkillBonus(skill.name, character.stats, profBonus, skillProficiencies)
+                      return (
+                        <div key={skill.name} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', borderRadius: 8,
+                          background: isProficient ? '#c9a84c11' : '#1e1e2a',
+                          border: `1px solid ${isProficient ? '#c9a84c44' : '#2a2a3a'}`
+                        }}>
+                          <div style={{
+                            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                            background: isProficient ? '#c9a84c' : 'transparent',
+                            border: `2px solid ${isProficient ? '#c9a84c' : '#3a3a4a'}`
+                          }} />
+                          <span style={{ flex: 1, fontSize: 13, color: isProficient ? '#e8e0d0' : '#888', fontWeight: isProficient ? 600 : 400 }}>
+                            {skill.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
+                            {skill.stat}
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 700, minWidth: 30, textAlign: 'right', color: isProficient ? '#c9a84c' : '#666' }}>
+                            {formatBonus(bonus)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Tratti */}
+                {abilitySection === 'traits' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {traits.length === 0 && (
+                      <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun tratto disponibile.</p>
+                    )}
+
+                    {raceTraits.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 11, color: '#c9a84c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
+                          ⭐ Tratti Razziali
+                        </div>
+                        {raceTraits.map(trait => (
+                          <div key={trait.id} style={{
+                            background: '#1e1e2a', border: '1px solid #2a2a3a',
+                            borderRadius: 10, overflow: 'hidden'
+                          }}>
+                            <div onClick={() => setExpandedTrait(expandedTrait === trait.id ? null : trait.id)}
+                              style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, fontSize: 13, color: '#c9a84c' }}>{trait.name}</span>
+                              <span style={{ color: '#555', fontSize: 11 }}>{expandedTrait === trait.id ? '▲' : '▼'}</span>
+                            </div>
+                            {expandedTrait === trait.id && trait.description && (
+                              <div style={{ padding: '0 14px 12px', paddingTop: 10, fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap', borderTop: '1px solid #2a2a3a' }}>
+                                {trait.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {classTraits.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 11, color: '#c9a84c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700, marginTop: 8, marginBottom: 4 }}>
+                          {UI_ICONS.combat} Tratti di Classe
+                        </div>
+                        {classTraits.map(trait => (
+                          <div key={trait.id} style={{
+                            background: '#1e1e2a', border: '1px solid #2a2a3a',
+                            borderRadius: 10, overflow: 'hidden'
+                          }}>
+                            <div onClick={() => setExpandedTrait(expandedTrait === trait.id ? null : trait.id)}
+                              style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <span style={{ fontWeight: 600, fontSize: 13, color: '#e8e0d0' }}>{trait.name}</span>
+                                {trait.level_required && (
+                                  <span style={{
+                                    marginLeft: 8, fontSize: 10, padding: '1px 5px', borderRadius: 3,
+                                    background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
+                                  }}>Liv. {trait.level_required}</span>
+                                )}
+                              </div>
+                              <span style={{ color: '#555', fontSize: 11 }}>{expandedTrait === trait.id ? '▲' : '▼'}</span>
+                            </div>
+                            {expandedTrait === trait.id && trait.description && (
+                              <div style={{ padding: '10px 14px 12px', fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap', borderTop: '1px solid #2a2a3a' }}>
+                                {trait.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Talenti */}
+                {abilitySection === 'talents' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {talents.length === 0 && (
+                      <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun talento ancora.</p>
+                    )}
+                    {talents.map(talent => (
+                      <div key={talent.id} style={{
+                        background: '#1e1e2a', border: '1px solid #2a2a3a',
+                        borderRadius: 10, padding: '12px 14px'
+                      }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#e8e0d0', marginBottom: talent.description ? 6 : 0 }}>
+                          {talent.name}
+                        </div>
+                        {talent.description && (
+                          <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                            {talent.description}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Tab Inventario */}
             {tab === 'inventory' && (
               <div>
+                {justAddedItem && (
+                  <div style={{
+                    background: '#4caf8222', border: '1px solid #4caf82',
+                    borderRadius: 8, padding: '8px 14px', marginBottom: 12,
+                    fontSize: 13, color: '#4caf82', fontWeight: 600
+                  }}>
+                    {UI_ICONS.success} "{justAddedItem}" aggiunto!
+                  </div>
+                )}
                 {isMaster && (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                     <button onClick={() => setShowCatalogModal(true)} style={{
                       flex: 1, padding: '10px 0',
                       background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                       color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13
-                    }}>+ Dal Catalogo</button>
+                    }}>{UI_ICONS.add} Dal Catalogo</button>
                     <button onClick={() => setShowCustomModal(true)} style={{
                       flex: 1, padding: '10px 0',
                       background: '#1e1e2a', border: '1px solid #c9a84c',
                       color: '#c9a84c', borderRadius: 8, fontWeight: 700, fontSize: 13
-                    }}>✏️ Personalizzato</button>
+                    }}>{UI_ICONS.custom} Personalizzato</button>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {items.length === 0 && (
-                    <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Inventario vuoto.</p>
-                  )}
+                  {items.length === 0 && <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Inventario vuoto.</p>}
                   {items.map(item => (
                     <div key={item.id} style={{
                       background: '#1e1e2a', border: '1px solid #2a2a3a',
@@ -482,10 +701,7 @@ export default function CharacterPreview({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 600, fontSize: 14, color: '#e8e0d0' }}>{item.name}</span>
                           {item.is_custom && (
-                            <span style={{
-                              fontSize: 9, padding: '1px 5px', borderRadius: 3,
-                              background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-                            }}>custom</span>
+                            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44' }}>custom</span>
                           )}
                         </div>
                         {item.notes && (
@@ -497,31 +713,25 @@ export default function CharacterPreview({
                       {isMaster ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => updateQuantity(item.id, -1)} style={{
-                            width: 26, height: 26, borderRadius: 6,
-                            background: '#2a2a3a', border: '1px solid #3a3a4a',
-                            color: '#e8e0d0', fontSize: 14, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                          }}>−</button>
+                            width: 26, height: 26, borderRadius: 6, background: '#2a2a3a', border: '1px solid #3a3a4a',
+                            color: '#e8e0d0', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                          }}>{UI_ICONS.damage}</button>
                           <span style={{ minWidth: 20, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#c9a84c' }}>
                             {item.quantity}
                           </span>
                           <button onClick={() => updateQuantity(item.id, +1)} style={{
-                            width: 26, height: 26, borderRadius: 6,
-                            background: '#2a2a3a', border: '1px solid #3a3a4a',
-                            color: '#e8e0d0', fontSize: 14, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                          }}>+</button>
+                            width: 26, height: 26, borderRadius: 6, background: '#2a2a3a', border: '1px solid #3a3a4a',
+                            color: '#e8e0d0', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                          }}>{UI_ICONS.heal}</button>
                           <button onClick={() => deleteItem(item.id)} style={{
                             background: 'none', border: 'none', color: '#3a3a4a', fontSize: 18, cursor: 'pointer'
                           }}
                             onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                             onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
-                          >×</button>
+                          >{UI_ICONS.close}</button>
                         </div>
                       ) : (
-                        <span style={{ fontSize: 13, color: '#c9a84c', fontWeight: 700, flexShrink: 0 }}>
-                          x{item.quantity}
-                        </span>
+                        <span style={{ fontSize: 13, color: '#c9a84c', fontWeight: 700, flexShrink: 0 }}>x{item.quantity}</span>
                       )}
                     </div>
                   ))}
@@ -532,17 +742,24 @@ export default function CharacterPreview({
             {/* Tab Magie */}
             {tab === 'spells' && (
               <div>
+                {justAddedSpell && (
+                  <div style={{
+                    background: '#4caf8222', border: '1px solid #4caf82',
+                    borderRadius: 8, padding: '8px 14px', marginBottom: 12,
+                    fontSize: 13, color: '#4caf82', fontWeight: 600
+                  }}>
+                    {UI_ICONS.success} "{justAddedSpell}" aggiunto!
+                  </div>
+                )}
                 {isMaster && (
                   <button onClick={() => setShowSpellModal(true)} style={{
                     width: '100%', padding: '10px 0', marginBottom: 16,
                     background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                     color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13
-                  }}>+ Aggiungi Incantesimo</button>
+                  }}>{UI_ICONS.add} Aggiungi Incantesimo</button>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {spells.length === 0 && (
-                    <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun incantesimo.</p>
-                  )}
+                  {spells.length === 0 && <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun incantesimo.</p>}
                   {spells.map(spell => (
                     <div key={spell.id} style={{
                       background: '#1e1e2a', border: '1px solid #2a2a3a',
@@ -555,9 +772,9 @@ export default function CharacterPreview({
                           {spell.school && (
                             <span style={{
                               fontSize: 9, padding: '1px 5px', borderRadius: 3,
-                              background: (getSchoolColor(spell.school) ?? '#555') + '22',
-                              color: getSchoolColor(spell.school) ?? '#888',
-                              border: `1px solid ${(getSchoolColor(spell.school) ?? '#555')}44`
+                              background: getSchoolColor(spell.school) + '22',
+                              color: getSchoolColor(spell.school),
+                              border: `1px solid ${getSchoolColor(spell.school)}44`
                             }}>{spell.school}</span>
                           )}
                         </div>
@@ -572,7 +789,7 @@ export default function CharacterPreview({
                         }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                           onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
-                        >×</button>
+                        >{UI_ICONS.close}</button>
                       )}
                     </div>
                   ))}
@@ -589,8 +806,8 @@ export default function CharacterPreview({
         <div style={modalBase} onClick={() => setShowCatalogModal(false)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ color: '#c9a84c', margin: 0 }}>🎒 Scegli Oggetto</h3>
-              <button onClick={() => setShowCatalogModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>{UI_ICONS.inventory} Scegli Oggetto</h3>
+              <button onClick={() => setShowCatalogModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>{UI_ICONS.close}</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <input placeholder="Cerca..." value={catalogSearch}
@@ -604,25 +821,39 @@ export default function CharacterPreview({
               {catalogLoading ? 'Caricamento...' : `${filteredCatalog.length} oggetti`}
             </p>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {filteredCatalog.map(item => (
-                <div key={item.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 0', borderBottom: '1px solid #1e1e2a'
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>{item.name}</div>
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                      {item.category}{item.cost ? ` · ${item.cost}` : ''}{item.weight ? ` · ${item.weight}kg` : ''}
-                      {item.damage ? ` · ${item.damage}` : ''}{item.armor_class ? ` · CA${item.armor_class}` : ''}
+              {filteredCatalog.map(item => {
+                const wasJustAdded = justAddedItem === item.name
+                const existing = items.find(i => i.name === item.name)
+                return (
+                  <div key={item.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 0', borderBottom: '1px solid #1e1e2a'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14 }}>{getCategoryIcon(item.category)}</span>
+                        <span style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>{item.name}</span>
+                        {existing && (
+                          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44' }}>
+                            x{existing.quantity}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                        {item.category}{item.cost ? ` · ${item.cost}` : ''}{item.weight ? ` · ${item.weight}kg` : ''}
+                      </div>
                     </div>
+                    <button onClick={() => handleAddFromCatalog(item)} style={{
+                      padding: '5px 14px', borderRadius: 6, border: 'none',
+                      background: wasJustAdded ? '#4caf82' : 'linear-gradient(135deg, #c9a84c, #a07830)',
+                      color: '#0f0f13', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0,
+                      transition: 'background 0.3s'
+                    }}>
+                      {wasJustAdded ? `${UI_ICONS.success} Aggiunto` : `${UI_ICONS.add} Aggiungi`}
+                    </button>
                   </div>
-                  <button onClick={() => handleAddFromCatalog(item)} style={{
-                    padding: '5px 14px', borderRadius: 6, border: 'none',
-                    background: 'linear-gradient(135deg, #c9a84c, #a07830)',
-                    color: '#0f0f13', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0
-                  }}>+ Aggiungi</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -633,8 +864,8 @@ export default function CharacterPreview({
         <div style={modalBase} onClick={() => setShowCustomModal(false)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ color: '#c9a84c', margin: 0 }}>✏️ Oggetto Personalizzato</h3>
-              <button onClick={() => setShowCustomModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>{UI_ICONS.custom} Oggetto Personalizzato</h3>
+              <button onClick={() => setShowCustomModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>{UI_ICONS.close}</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <input placeholder="Nome oggetto *" value={customName}
@@ -658,7 +889,7 @@ export default function CharacterPreview({
                 flex: 1, padding: '12px 0',
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 color: '#0f0f13', border: 'none', borderRadius: 8, fontWeight: 700
-              }}>+ Aggiungi</button>
+              }}>{UI_ICONS.add} Aggiungi</button>
               <button onClick={() => setShowCustomModal(false)} style={{
                 padding: '12px 16px', background: 'none',
                 border: '1px solid #2a2a3a', color: '#888', borderRadius: 8
@@ -673,8 +904,8 @@ export default function CharacterPreview({
         <div style={modalBase} onClick={() => setShowSpellModal(false)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ color: '#c9a84c', margin: 0 }}>✨ Scegli Incantesimo</h3>
-              <button onClick={() => setShowSpellModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>×</button>
+              <h3 style={{ color: '#c9a84c', margin: 0 }}>{UI_ICONS.spells} Scegli Incantesimo</h3>
+              <button onClick={() => setShowSpellModal(false)} style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}>{UI_ICONS.close}</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <input placeholder="Cerca..." value={spellSearch}
@@ -694,6 +925,7 @@ export default function CharacterPreview({
               {spellCatalogLoading && <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento...</p>}
               {!spellCatalogLoading && filteredSpellCatalog.map(spell => {
                 const alreadyAdded = spells.some(s => s.name === spell.name)
+                const wasJustAdded = justAddedSpell === spell.name
                 return (
                   <div key={spell.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -705,8 +937,8 @@ export default function CharacterPreview({
                         {spell.school && (
                           <span style={{
                             fontSize: 9, padding: '1px 5px', borderRadius: 3,
-                            background: (getSchoolColor(spell.school) ?? '#555') + '22',
-                            color: getSchoolColor(spell.school) ?? '#888',
+                            background: getSchoolColor(spell.school) + '22',
+                            color: getSchoolColor(spell.school),
                           }}>{spell.school}</span>
                         )}
                       </div>
@@ -716,12 +948,12 @@ export default function CharacterPreview({
                     </div>
                     <button onClick={() => handleAddSpell(spell)} disabled={alreadyAdded} style={{
                       padding: '5px 14px', borderRadius: 6, border: 'none',
-                      background: alreadyAdded ? '#2a2a3a' : 'linear-gradient(135deg, #c9a84c, #a07830)',
-                      color: alreadyAdded ? '#555' : '#0f0f13',
+                      background: wasJustAdded ? '#4caf82' : alreadyAdded ? '#2a2a3a' : 'linear-gradient(135deg, #c9a84c, #a07830)',
+                      color: alreadyAdded && !wasJustAdded ? '#555' : '#0f0f13',
                       cursor: alreadyAdded ? 'default' : 'pointer',
-                      fontSize: 13, fontWeight: 600, flexShrink: 0
+                      fontSize: 13, fontWeight: 600, flexShrink: 0, transition: 'background 0.3s'
                     }}>
-                      {alreadyAdded ? '✓' : '+ Aggiungi'}
+                      {wasJustAdded ? `${UI_ICONS.success} Aggiunto` : alreadyAdded ? UI_ICONS.success : `${UI_ICONS.add} Aggiungi`}
                     </button>
                   </div>
                 )
@@ -747,7 +979,7 @@ export default function CharacterPreview({
             background: 'rgba(255,255,255,0.1)', border: 'none',
             color: '#fff', fontSize: 24, width: 40, height: 40,
             borderRadius: '50%', cursor: 'pointer'
-          }}>×</button>
+          }}>{UI_ICONS.close}</button>
         </div>
       )}
     </>
