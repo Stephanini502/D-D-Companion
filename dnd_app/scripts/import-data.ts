@@ -25,6 +25,44 @@ async function fetchJSON(file: string, base = BASE_URL_2014) {
   return res.json()
 }
 
+async function importMonsters() {
+  console.log('Importando mostri dal 2014...')
+  const monsters = await fetchJSON('5e-SRD-Monsters.json', BASE_URL_2014)
+  console.log(`Scaricati ${monsters.length} mostri`)
+
+  const rows = monsters.map((m: any) => ({
+    id: m.index,
+    name: m.name,
+    hp: m.hit_points ?? null,
+    ac: m.armor_class?.[0]?.value ?? m.armor_class ?? null,
+    challenge_rating: String(m.challenge_rating ?? '0'),
+    type: m.type ?? null,
+    size: m.size ?? null,
+    data: m
+  }))
+
+  console.log(`Primo: ${rows[0]?.name} | Ultimo: ${rows[rows.length - 1]?.name}`)
+
+  await supabase.from('catalog_monsters').delete().neq('id', '')
+  console.log('Tabella svuotata')
+
+  let importati = 0
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100)
+    const { error } = await supabase
+      .from('catalog_monsters')
+      .insert(chunk)
+    if (error) {
+      console.error(`⚠️ Chunk ${i}-${i + 100}:`, error.message)
+    } else {
+      importati += chunk.length
+      console.log(`✓ ${importati}/${rows.length}`)
+    }
+  }
+
+  console.log(`✓ Completato: ${importati}/${rows.length} mostri importati`)
+}
+
 async function importSpells() {
   console.log('Importando incantesimi...')
   const spells = await fetchJSON('5e-SRD-Spells.json')
@@ -157,6 +195,7 @@ async function importItems() {
 }
 
 async function main() {
+  await importMonsters()
   await importSpells()
   await importClasses()
   await importRaces()

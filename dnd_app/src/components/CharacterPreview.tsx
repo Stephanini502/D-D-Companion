@@ -1,41 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { Character } from '../models/character'
+import type { Item } from '../models/item'
+import type { Spell } from '../models/spell'
 import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
 import { getClassIcon, getSchoolColor, getCategoryIcon, UI_ICONS } from '../data/icons'
 import { SKILLS, getSkillBonus, formatBonus } from '../data/skills'
 
 const BUCKET = 'characters-images'
-
-interface Character {
-  id: string
-  name: string
-  race: string
-  character_class: string
-  level: number
-  hp_current: number
-  hp_max: number
-  stats: Record<string, number>
-  image_path?: string
-  perception_proficiency?: boolean
-}
-
-interface Item {
-  id: string
-  name: string
-  notes: string
-  weight: number
-  quantity: number
-  is_custom?: boolean
-}
-
-interface Spell {
-  id: string
-  name: string
-  level: number
-  school: string
-  cast_time: string
-  range: string
-}
 
 interface CatalogItem {
   id: string
@@ -125,7 +97,7 @@ export default function CharacterPreview({
         .eq('id', characterId)
         .single()
       if (data) {
-        setCharacter(data)
+        setCharacter(data as Character)
         if (data.skill_proficiencies) setSkillProficiencies(data.skill_proficiencies)
         if (data.image_path) {
           const url = supabase.storage.from(BUCKET).getPublicUrl(data.image_path).data.publicUrl
@@ -169,7 +141,7 @@ export default function CharacterPreview({
       .select('*')
       .eq('character_id', characterId)
       .order('created_at', { ascending: true })
-    setItems(data || [])
+    setItems((data || []) as Item[])
   }
 
   async function loadSpells() {
@@ -178,7 +150,7 @@ export default function CharacterPreview({
       .select('*')
       .eq('character_id', characterId)
       .order('level', { ascending: true })
-    setSpells(data || [])
+    setSpells((data || []) as Spell[])
   }
 
   async function loadCatalog() {
@@ -213,7 +185,9 @@ export default function CharacterPreview({
   async function handleAddFromCatalog(item: CatalogItem) {
     const existing = items.find(i => i.name === item.name)
     if (existing) {
-      await supabase.from('inventory_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+      await supabase.from('inventory_items')
+        .update({ quantity: existing.quantity + 1 })
+        .eq('id', existing.id)
     } else {
       await supabase.from('inventory_items').insert({
         character_id: characterId,
@@ -240,7 +214,9 @@ export default function CharacterPreview({
     ].filter(Boolean).join(' · ')
     const existing = items.find(i => i.name === customName)
     if (existing) {
-      await supabase.from('inventory_items').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+      await supabase.from('inventory_items')
+        .update({ quantity: existing.quantity + 1 })
+        .eq('id', existing.id)
     } else {
       await supabase.from('inventory_items').insert({
         character_id: characterId, character_name: character?.name,
@@ -463,7 +439,6 @@ export default function CharacterPreview({
                   ))}
                 </div>
 
-                {/* Percezione passiva */}
                 <div style={{
                   background: '#1e1e2a', border: '1px solid #2a2a3a',
                   borderRadius: 10, padding: '12px 14px',
@@ -482,7 +457,6 @@ export default function CharacterPreview({
                   </div>
                 </div>
 
-                {/* Scurovisione */}
                 <div style={{
                   background: '#1e1e2a', border: '1px solid #2a2a3a',
                   borderRadius: 10, padding: '12px 14px',
@@ -516,7 +490,6 @@ export default function CharacterPreview({
             {/* Tab Abilità */}
             {tab === 'abilities' && (
               <div>
-                {/* Switcher */}
                 <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
                   {([
                     { key: 'skills', label: '🎯 Abilità' },
@@ -534,7 +507,6 @@ export default function CharacterPreview({
                   ))}
                 </div>
 
-                {/* Abilità */}
                 {abilitySection === 'skills' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>
@@ -570,13 +542,11 @@ export default function CharacterPreview({
                   </div>
                 )}
 
-                {/* Tratti */}
                 {abilitySection === 'traits' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {traits.length === 0 && (
                       <p style={{ color: '#444', textAlign: 'center', padding: 20 }}>Nessun tratto disponibile.</p>
                     )}
-
                     {raceTraits.length > 0 && (
                       <>
                         <div style={{ fontSize: 11, color: '#c9a84c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
@@ -593,7 +563,7 @@ export default function CharacterPreview({
                               <span style={{ color: '#555', fontSize: 11 }}>{expandedTrait === trait.id ? '▲' : '▼'}</span>
                             </div>
                             {expandedTrait === trait.id && trait.description && (
-                              <div style={{ padding: '0 14px 12px', paddingTop: 10, fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap', borderTop: '1px solid #2a2a3a' }}>
+                              <div style={{ padding: '10px 14px 12px', fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap', borderTop: '1px solid #2a2a3a' }}>
                                 {trait.description}
                               </div>
                             )}
@@ -637,7 +607,6 @@ export default function CharacterPreview({
                   </div>
                 )}
 
-                {/* Talenti */}
                 {abilitySection === 'talents' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {talents.length === 0 && (
@@ -700,7 +669,7 @@ export default function CharacterPreview({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 600, fontSize: 14, color: '#e8e0d0' }}>{item.name}</span>
-                          {item.is_custom && (
+                          {(item as any).is_custom && (
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44' }}>custom</span>
                           )}
                         </div>
