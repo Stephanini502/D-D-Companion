@@ -32,6 +32,7 @@ export default function SpellsTab({
   const [search, setSearch] = useState('')
   const [filterLevel, setFilterLevel] = useState<number | 'all'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null)
   const [justAdded, setJustAdded] = useState<string | null>(null)
 
   async function loadSpells() {
@@ -127,6 +128,7 @@ export default function SpellsTab({
         </div>
       )}
 
+      {/* Incantesimi del personaggio */}
       {Object.entries(groupedSpells).map(([group, groupSpells]) => (
         <div key={group} style={{ marginBottom: 20 }}>
           <div style={{
@@ -187,7 +189,8 @@ export default function SpellsTab({
                 {expanded === spell.id && spell.description && (
                   <div style={{
                     padding: '10px 14px 12px', fontSize: 13, color: '#888',
-                    lineHeight: 1.6, borderTop: '1px solid #2a2a3a'
+                    lineHeight: 1.6, borderTop: '1px solid #2a2a3a',
+                    whiteSpace: 'pre-wrap'
                   }}>
                     {spell.description}
                   </div>
@@ -198,12 +201,12 @@ export default function SpellsTab({
         </div>
       ))}
 
-      {/* Modale */}
+      {/* Modale catalogo */}
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
           zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
-        }} onClick={() => setShowModal(false)}>
+        }} onClick={() => { setShowModal(false); setExpandedCatalog(null) }}>
           <div style={{
             background: '#16161f', borderRadius: '16px 16px 0 0',
             padding: 20, width: '100%', maxWidth: 480,
@@ -218,9 +221,10 @@ export default function SpellsTab({
               <h3 style={{ color: '#c9a84c', margin: 0 }}>
                 {UI_ICONS.spells} Scegli Incantesimo
               </h3>
-              <button onClick={() => setShowModal(false)} style={{
-                background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer'
-              }}>{UI_ICONS.close}</button>
+              <button
+                onClick={() => { setShowModal(false); setExpandedCatalog(null) }}
+                style={{ background: 'none', border: 'none', color: '#666', fontSize: 22, cursor: 'pointer' }}
+              >{UI_ICONS.close}</button>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -245,63 +249,112 @@ export default function SpellsTab({
             </div>
 
             <p style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
-              {catalogLoading ? 'Caricamento...' : `${filteredCatalog.length} incantesimi per ${characterClass}`}
+              {catalogLoading
+                ? 'Caricamento...'
+                : `${filteredCatalog.length} incantesimi per ${characterClass}`
+              }
             </p>
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {catalogLoading && (
-                <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento catalogo...</p>
+                <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>
+                  Caricamento catalogo...
+                </p>
               )}
+
               {!catalogLoading && filteredCatalog.map(spell => {
                 const alreadyAdded = spells.some(s => s.name === spell.name)
                 const wasJustAdded = justAdded === spell.name
+                const isExpanded = expandedCatalog === spell.id
+
                 return (
-                  <div key={spell.id} style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center', padding: '10px 0',
-                    borderBottom: '1px solid #1e1e2a'
-                  }}>
-                    <div style={{ flex: 1, marginRight: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>
-                          {spell.name}
-                        </span>
-                        {spell.school && (
-                          <span style={{
-                            fontSize: 10, padding: '1px 5px', borderRadius: 3,
-                            background: getSchoolColor(spell.school) + '22',
-                            color: getSchoolColor(spell.school),
-                          }}>
-                            {spell.school}
+                  <div key={spell.id} style={{ borderBottom: '1px solid #1e1e2a' }}>
+
+                    {/* Riga principale */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      alignItems: 'center', padding: '10px 0', gap: 8
+                    }}>
+                      {/* Info — cliccabile per espandere */}
+                      <div
+                        style={{ flex: 1, cursor: 'pointer' }}
+                        onClick={() => setExpandedCatalog(isExpanded ? null : spell.id)}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 500, fontSize: 14, color: '#e8e0d0' }}>
+                            {spell.name}
                           </span>
+                          {spell.school && (
+                            <span style={{
+                              fontSize: 10, padding: '1px 5px', borderRadius: 3,
+                              background: getSchoolColor(spell.school) + '22',
+                              color: getSchoolColor(spell.school),
+                            }}>
+                              {spell.school}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 11, color: '#444' }}>
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                          {spell.level === 0 ? 'Trucchetto' : `Liv. ${spell.level}`}
+                          {spell.cast_time ? ` · ${spell.cast_time}` : ''}
+                          {spell.range ? ` · ${spell.range}` : ''}
+                          {spell.duration ? ` · ${spell.duration}` : ''}
+                        </div>
+                      </div>
+
+                      {/* Bottone aggiungi */}
+                      <button
+                        onClick={() => handleAdd(spell)}
+                        disabled={alreadyAdded}
+                        style={{
+                          padding: '5px 14px', borderRadius: 6, border: 'none',
+                          background: wasJustAdded
+                            ? '#4caf82'
+                            : alreadyAdded
+                              ? '#2a2a3a'
+                              : 'linear-gradient(135deg, #c9a84c, #a07830)',
+                          color: alreadyAdded && !wasJustAdded ? '#555' : '#0f0f13',
+                          cursor: alreadyAdded ? 'default' : 'pointer',
+                          fontSize: 13, fontWeight: 600, flexShrink: 0,
+                          transition: 'background 0.3s'
+                        }}
+                      >
+                        {wasJustAdded
+                          ? `${UI_ICONS.success} Aggiunto`
+                          : alreadyAdded
+                            ? UI_ICONS.success
+                            : `${UI_ICONS.add} Aggiungi`
+                        }
+                      </button>
+                    </div>
+
+                    {/* Descrizione espandibile */}
+                    {isExpanded && (
+                      <div style={{
+                        padding: '8px 0 14px',
+                        borderTop: '1px solid #1e1e2a'
+                      }}>
+                        {spell.description ? (
+                          <p style={{
+                            fontSize: 12, color: '#888', lineHeight: 1.7,
+                            margin: 0, whiteSpace: 'pre-wrap'
+                          }}>
+                            {spell.description}
+                          </p>
+                        ) : (
+                          <p style={{ fontSize: 12, color: '#444', margin: 0 }}>
+                            Nessuna descrizione disponibile.
+                          </p>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                        {spell.level === 0 ? 'Trucchetto' : `Liv. ${spell.level}`}
-                        {` · ${spell.cast_time}`}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleAdd(spell)}
-                      disabled={alreadyAdded}
-                      style={{
-                        padding: '5px 14px', borderRadius: 6, border: 'none',
-                        background: wasJustAdded
-                          ? '#4caf82'
-                          : alreadyAdded
-                            ? '#2a2a3a'
-                            : 'linear-gradient(135deg, #c9a84c, #a07830)',
-                        color: alreadyAdded && !wasJustAdded ? '#555' : '#0f0f13',
-                        cursor: alreadyAdded ? 'default' : 'pointer',
-                        fontSize: 13, fontWeight: 600, flexShrink: 0,
-                        transition: 'background 0.3s'
-                      }}
-                    >
-                      {wasJustAdded ? `${UI_ICONS.success} Aggiunto` : alreadyAdded ? UI_ICONS.success : `${UI_ICONS.add} Aggiungi`}
-                    </button>
+                    )}
                   </div>
                 )
               })}
+
               {!catalogLoading && filteredCatalog.length === 0 && (
                 <p style={{ color: '#555', textAlign: 'center', marginTop: 30 }}>
                   Nessun incantesimo trovato.
