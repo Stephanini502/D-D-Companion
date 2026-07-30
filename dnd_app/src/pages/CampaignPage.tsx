@@ -4,6 +4,10 @@ import InitiativeTracker from '../components/InitiativeTracker'
 import CampaignNotes from '../components/CampaignNotes'
 import SessionsList from '../components/SessionsList'
 import MembersTab from '../components/MembersTab'
+import DiceRoller from '../components/DiceRoller'
+import MasterDashboard from '../components/MasterDashboard'
+import PlayerDashboard from '../components/PlayerDashboard'
+import MusicPlayer from '../components/MusicPlayer'
 import { useDialog } from '../components/Dialog'
 import { UI_ICONS } from '../data/icons'
 
@@ -15,7 +19,7 @@ interface Campaign {
   invite_code: string
 }
 
-type Tab = 'sessions' | 'notes' | 'initiative' | 'members' | 'dice'
+type Tab = 'dashboard' | 'sessions' | 'notes' | 'initiative' | 'members' | 'dice' | 'music'
 
 export default function CampaignPage({
   campaign,
@@ -26,17 +30,14 @@ export default function CampaignPage({
   userId: string
   onBack: () => void
 }) {
-  const [tab, setTab] = useState<Tab>('sessions')
+  const [tab, setTab] = useState<Tab>('dashboard')
   const isMaster = campaign.master_id === userId
   const { confirm, DialogComponent } = useDialog()
 
-  // Nome modificabile
   const [editingName, setEditingName] = useState(false)
   const [currentName, setCurrentName] = useState(campaign.name)
   const [newName, setNewName] = useState(campaign.name)
   const [savingName, setSavingName] = useState(false)
-
-  // Username per il dice roller
   const [username, setUsername] = useState('')
 
   useEffect(() => {
@@ -105,18 +106,19 @@ export default function CampaignPage({
   }
 
   const tabs = [
-    { key: 'sessions',    label: `${UI_ICONS.session}    Sessioni`   },
-    { key: 'notes',       label: `${UI_ICONS.notes}      Appunti`    },
-    { key: 'initiative',  label: `${UI_ICONS.initiative} Iniziativa` },
-    { key: 'members',     label: `${UI_ICONS.group}      Gruppo`     },
-    { key: 'dice',        label: `${UI_ICONS.dice}       Dadi`       },
+    { key: 'dashboard', label: isMaster ? `${UI_ICONS.master} Dashboard` : `📊 Dashboard` },
+    { key: 'sessions', label: `${UI_ICONS.session} Sessioni` },
+    { key: 'notes', label: `${UI_ICONS.notes} Appunti` },
+    { key: 'initiative', label: `${UI_ICONS.initiative} Iniziativa` },
+    { key: 'members', label: `${UI_ICONS.group} Gruppo` },
+    { key: 'dice', label: `${UI_ICONS.dice} Dadi` },
+    ...(isMaster ? [{ key: 'music' as Tab, label: '🎵 Musica' }] : []),
   ] as { key: Tab, label: string }[]
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
       <DialogComponent />
 
-      {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
@@ -139,12 +141,8 @@ export default function CampaignPage({
       </div>
 
       <div style={{ padding: '20px 24px 0' }}>
-
-        {/* Info campagna */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-
-            {/* Nome modificabile */}
             {editingName ? (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                 <input
@@ -161,27 +159,16 @@ export default function CampaignPage({
                   }}
                   autoFocus
                 />
-                <button
-                  onClick={handleSaveName}
-                  disabled={savingName}
-                  style={{
-                    background: '#4caf8222', border: '1px solid #4caf82',
-                    color: '#4caf82', borderRadius: 8, padding: '4px 10px',
-                    fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0
-                  }}
-                >
-                  {savingName ? '...' : UI_ICONS.success}
-                </button>
-                <button
-                  onClick={() => { setEditingName(false); setNewName(currentName) }}
-                  style={{
-                    background: 'none', border: '1px solid #2a2a3a',
-                    color: '#888', borderRadius: 8, padding: '4px 10px',
-                    fontSize: 13, cursor: 'pointer', flexShrink: 0
-                  }}
-                >
-                  {UI_ICONS.close}
-                </button>
+                <button onClick={handleSaveName} disabled={savingName} style={{
+                  background: '#4caf8222', border: '1px solid #4caf82',
+                  color: '#4caf82', borderRadius: 8, padding: '4px 10px',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0
+                }}>{savingName ? '...' : UI_ICONS.success}</button>
+                <button onClick={() => { setEditingName(false); setNewName(currentName) }} style={{
+                  background: 'none', border: '1px solid #2a2a3a',
+                  color: '#888', borderRadius: 8, padding: '4px 10px',
+                  fontSize: 13, cursor: 'pointer', flexShrink: 0
+                }}>{UI_ICONS.close}</button>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -198,20 +185,14 @@ export default function CampaignPage({
                     }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#c9a84c')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#444')}
-                  >
-                    {UI_ICONS.edit}
-                  </button>
+                  >{UI_ICONS.edit}</button>
                 )}
               </div>
             )}
-
             {campaign.description && (
-              <p style={{ color: '#666', fontSize: 13, margin: 0 }}>
-                {campaign.description}
-              </p>
+              <p style={{ color: '#666', fontSize: 13, margin: 0 }}>{campaign.description}</p>
             )}
           </div>
-
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             {isMaster && (
               <div style={{ fontSize: 10, color: '#c9a84c', marginBottom: 2 }}>
@@ -222,14 +203,11 @@ export default function CampaignPage({
               fontSize: 13, fontFamily: 'monospace', letterSpacing: 2,
               color: '#888', background: '#1e1e2a', padding: '4px 8px',
               borderRadius: 6, border: '1px solid #2a2a3a'
-            }}>
-              {campaign.invite_code}
-            </div>
+            }}>{campaign.invite_code}</div>
             <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>codice invito</div>
           </div>
         </div>
 
-        {/* Tab bar — scrollabile orizzontalmente per 5 tab */}
         <div style={{
           display: 'flex', borderBottom: '1px solid #2a2a3a',
           marginBottom: 20, overflowX: 'auto'
@@ -242,15 +220,18 @@ export default function CampaignPage({
               color: tab === t.key ? '#c9a84c' : '#555',
               fontWeight: tab === t.key ? 700 : 400,
               cursor: 'pointer', fontSize: 11, transition: 'color 0.2s'
-            }}>
-              {t.label}
-            </button>
+            }}>{t.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Contenuto tab */}
       <div style={{ padding: '0 24px 24px' }}>
+        {tab === 'dashboard' && isMaster && (
+          <MasterDashboard campaignId={campaign.id} />
+        )}
+        {tab === 'dashboard' && !isMaster && (
+          <PlayerDashboard campaignId={campaign.id} userId={userId} />
+        )}
         {tab === 'sessions' && (
           <SessionsList campaignId={campaign.id} isMaster={isMaster} />
         )}
@@ -267,6 +248,12 @@ export default function CampaignPage({
             isMaster={isMaster}
             inviteCode={campaign.invite_code}
           />
+        )}
+        {tab === 'dice' && (
+          <DiceRoller campaignId={campaign.id} username={username || 'Giocatore'} />
+        )}
+        {tab === 'music' && isMaster && (
+          <MusicPlayer campaignId={campaign.id} />
         )}
       </div>
     </div>

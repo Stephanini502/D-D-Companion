@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variabili ambiente / segreti (NON committare)
+.env
+.env.local
+.env.*.local

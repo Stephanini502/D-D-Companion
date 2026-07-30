@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import SpellsTab from '../components/SpellsTab'
@@ -13,6 +13,12 @@ type Tab = 'stats' | 'spells' | 'inventory' | 'combat' | 'abilities'
 
 const BUCKET = 'characters-images'
 
+const STAT_ORDER = ['FOR', 'DES', 'COS', 'INT', 'SAG', 'CAR']
+const STAT_LABELS: Record<string, string> = {
+  FOR: 'Forza', DES: 'Destrezza', COS: 'Costituzione',
+  INT: 'Intelligenza', SAG: 'Saggezza', CAR: 'Carisma',
+}
+
 export default function CharacterPage({
   character,
   onBack
@@ -21,19 +27,28 @@ export default function CharacterPage({
   onBack: () => void
 }) {
   const [tab, setTab] = useState<Tab>('stats')
+  const [char, setChar] = useState<Character>(character)
   const [hp, setHp] = useState(character.hp_current)
   const [deleting, setDeleting] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editLevel, setEditLevel] = useState(character.level)
+  const [editHpMax, setEditHpMax] = useState(character.hp_max)
+  const [editStats, setEditStats] = useState<Record<string, number>>({ ...character.stats })
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showFullImage, setShowFullImage] = useState(false)
   const [perceptionProficiency, setPerceptionProficiency] = useState(false)
   const { confirm, DialogComponent } = useDialog()
 
+  // Evita di salvare i PF al primo render (valore appena caricato dal DB)
+  const skipHpSave = useRef(true)
+
   useEffect(() => {
     async function loadData() {
       const { data } = await supabase
         .from('characters')
-        .select('image_path, perception_proficiency')
+        .select('image_path, perception_proficiency, hp_current')
         .eq('id', character.id)
         .single()
       if (data?.image_path) {
@@ -45,9 +60,25 @@ export default function CharacterPage({
       if (data?.perception_proficiency !== undefined) {
         setPerceptionProficiency(data.perception_proficiency)
       }
+      if (typeof data?.hp_current === 'number') {
+        skipHpSave.current = true
+        setHp(data.hp_current)
+      }
     }
     loadData()
   }, [character.id])
+
+  // Persiste i PF correnti su Supabase con debounce
+  useEffect(() => {
+    if (skipHpSave.current) {
+      skipHpSave.current = false
+      return
+    }
+    const t = setTimeout(() => {
+      supabase.from('characters').update({ hp_current: hp }).eq('id', character.id)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [hp, character.id])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -82,6 +113,34 @@ export default function CharacterPage({
     return (m >= 0 ? '+' : '') + m
   }
 
+  function openEdit() {
+    setEditLevel(char.level)
+    setEditHpMax(char.hp_max)
+    setEditStats({ ...char.stats })
+    setShowEdit(true)
+  }
+
+  async function saveEdit() {
+    setSavingEdit(true)
+    const newStats = { ...char.stats, ...editStats }
+    const newHpCurrent = Math.min(hp, editHpMax)
+    const { error } = await supabase
+      .from('characters')
+      .update({
+        level: editLevel,
+        hp_max: editHpMax,
+        hp_current: newHpCurrent,
+        stats: newStats,
+      })
+      .eq('id', char.id)
+    setSavingEdit(false)
+    if (error) return
+    setChar({ ...char, level: editLevel, hp_max: editHpMax, hp_current: newHpCurrent, stats: newStats as Character['stats'] })
+    skipHpSave.current = true
+    setHp(newHpCurrent)
+    setShowEdit(false)
+  }
+
   async function handleDelete() {
     const ok = await confirm({
       title: 'Elimina Personaggio',
@@ -98,12 +157,12 @@ export default function CharacterPage({
     onBack()
   }
 
-  const hpPercent = Math.round((hp / character.hp_max) * 100)
+  const hpPercent = Math.round((hp / char.hp_max) * 100)
   const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
-  const sagMod = Math.floor(((character.stats.SAG as number) - 10) / 2)
-  const profBonus = getProficiencyBonus(character.level)
+  const sagMod = Math.floor(((char.stats.SAG as number) - 10) / 2)
+  const profBonus = getProficiencyBonus(char.level)
   const passivePerception = getPassivePerception(sagMod, profBonus, perceptionProficiency)
-  const darkvision = getDarkvision(character.race)
+  const darkvision = getDarkvision(char.race)
 
   const tabs = [
     { key: 'stats', label: `📊 Stats` },
@@ -158,14 +217,18 @@ export default function CharacterPage({
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', margin: 0 }}>
               {character.name}
             </h1>
-            <p style={{ color: '#888', fontSize: 13, margin: '4px 0 8px' }}>
-              {character.race} · {character.character_class} · Livello {character.level}
+            <p style={{ color: '#888', fontSize: 13, margin: '4px 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{char.race} · {char.character_class} · Livello {char.level}</span>
+              <button onClick={openEdit} title="Modifica livello e caratteristiche" style={{
+                background: 'none', border: '1px solid #2a2a3a', color: '#c9a84c',
+                borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer'
+              }}>{UI_ICONS.edit ?? '✏️'} Modifica</button>
             </p>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
-                  {hp} / {character.hp_max}
+                  {hp} / {char.hp_max}
                 </span>
               </div>
               <div style={{ height: 6, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
@@ -185,7 +248,7 @@ export default function CharacterPage({
                   }}
                 >{UI_ICONS.damage} Danno</button>
                 <button
-                  onClick={() => setHp(h => Math.min(character.hp_max, h + 1))}
+                  onClick={() => setHp(h => Math.min(char.hp_max, h + 1))}
                   style={{
                     flex: 1, padding: '6px 0',
                     background: '#1e1e2a', border: '1px solid #4caf82',
@@ -259,7 +322,7 @@ export default function CharacterPage({
 
             {/* Statistiche 3x2 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {Object.entries(character.stats).map(([key, val]) => (
+              {Object.entries(char.stats).map(([key, val]) => (
                 <div key={key} style={{
                   background: '#16161f', border: '1px solid #2a2a3a',
                   borderRadius: 10, padding: '10px 8px', textAlign: 'center'
@@ -333,7 +396,7 @@ export default function CharacterPage({
                 ) : (
                   <>
                     <div style={{ fontSize: 22, fontWeight: 700, color: '#3a3a4a' }}>Nessuna</div>
-                    <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{character.race} non ha scurovisione</div>
+                    <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{char.race} non ha scurovisione</div>
                   </>
                 )}
               </div>
@@ -344,28 +407,28 @@ export default function CharacterPage({
 
         {tab === 'abilities' && (
           <AbilitiesTab
-            characterId={character.id}
-            characterRace={character.race}
-            characterClass={character.character_class}
-            characterLevel={character.level}
-            stats={character.stats as Record<string, number>}
+            characterId={char.id}
+            characterRace={char.race}
+            characterClass={char.character_class}
+            characterLevel={char.level}
+            stats={char.stats as Record<string, number>}
           />
         )}
 
         {tab === 'spells' && (
           <SpellsTab
-            characterId={character.id}
-            characterName={character.name}
-            characterClass={character.character_class}
+            characterId={char.id}
+            characterName={char.name}
+            characterClass={char.character_class}
           />
         )}
 
         {tab === 'inventory' && (
-          <InventoryTab characterId={character.id} characterName={character.name} />
+          <InventoryTab characterId={char.id} characterName={char.name} />
         )}
 
         {tab === 'combat' && (
-          <CombatTab character={character} characterId={character.id} />
+          <CombatTab character={char} characterId={char.id} />
         )}
 
       </div>
@@ -384,11 +447,74 @@ export default function CharacterPage({
             color: '#fff', fontSize: 24, width: 40, height: 40,
             borderRadius: '50%', cursor: 'pointer'
           }}>{UI_ICONS.close}</button>
-          <img src={imageUrl} alt={character.name}
+          <img src={imageUrl} alt={char.name}
             style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: 12 }}
             onClick={e => e.stopPropagation()} />
           <div style={{ position: 'absolute', bottom: 20, color: '#888', fontSize: 13 }}>
-            {character.name} · {character.race} · {character.character_class}
+            {char.name} · {char.race} · {char.character_class}
+          </div>
+        </div>
+      )}
+
+      {/* Modal modifica livello / stats / PF max */}
+      {showEdit && (
+        <div onClick={() => !savingEdit && setShowEdit(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 16,
+            padding: 20, width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 16, marginBottom: 16 }}>
+              ✏️ Modifica Personaggio
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Livello</label>
+                <input type="number" min={1} max={20} value={editLevel}
+                  onChange={e => setEditLevel(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>PF Massimi</label>
+                <input type="number" min={1} value={editHpMax}
+                  onChange={e => setEditHpMax(Math.max(1, Number(e.target.value) || 1))}
+                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Caratteristiche
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
+              {STAT_ORDER.map(key => (
+                <div key={key} style={{ textAlign: 'center' }}>
+                  <label title={STAT_LABELS[key]} style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>{key}</label>
+                  <input type="number" min={1} max={30} value={editStats[key] ?? 10}
+                    onChange={e => setEditStats(s => ({ ...s, [key]: Math.max(1, Math.min(30, Number(e.target.value) || 1)) }))}
+                    style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
+                  <div style={{ fontSize: 11, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>
+                    {mod(editStats[key] ?? 10)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={saveEdit} disabled={savingEdit} style={{
+                flex: 1, padding: '10px 0',
+                background: 'linear-gradient(135deg, #c9a84c, #a07830)',
+                border: 'none', color: '#0f0f13', borderRadius: 8, fontWeight: 700,
+                cursor: savingEdit ? 'default' : 'pointer'
+              }}>{savingEdit ? 'Salvataggio...' : '💾 Salva'}</button>
+              <button onClick={() => setShowEdit(false)} disabled={savingEdit} style={{
+                padding: '10px 16px', background: 'none',
+                border: '1px solid #2a2a3a', color: '#888', borderRadius: 8, cursor: 'pointer'
+              }}>Annulla</button>
+            </div>
           </div>
         </div>
       )}

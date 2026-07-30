@@ -113,24 +113,29 @@ export default function CampaignsPage() {
     setLoadingAction(false)
   }
 
-  if (selected) return (
-    <CampaignPage
-      campaign={selected}
-      userId={userId ?? ''}
-      onBack={() => { setSelected(null); loadCampaigns() }}
-    />
-  )
+  // NAVIGAZIONE: se una campagna è selezionata, mostra CampaignPage
+  if (selected) {
+    return (
+      <CampaignPage
+        campaign={selected}
+        userId={userId ?? ''}
+        onBack={() => { setSelected(null); loadCampaigns() }}
+      />
+    )
+  }
+
+  // Dividi campagne per ruolo
+  const masterCampaigns = campaigns.filter(c => c.master_id === userId)
+  const playerCampaigns = campaigns.filter(c => c.master_id !== userId)
 
   const modalStyle = {
     position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.8)',
     zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'
   }
-
   const cardStyle = {
     background: '#16161f', border: '1px solid #2a2a3a',
     borderRadius: 16, padding: 24, width: '90%', maxWidth: 400
   }
-
   const labelStyle = {
     display: 'block' as const, fontSize: 11, color: '#888',
     letterSpacing: 1, textTransform: 'uppercase' as const,
@@ -139,15 +144,6 @@ export default function CampaignsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2 style={{ color: '#c9a84c', margin: 0, fontSize: 18 }}>
-            {UI_ICONS.campaign} Campagne
-          </h2>
-          <p style={{ color: '#555', fontSize: 12, marginTop: 2 }}>Gestisci le tue avventure</p>
-        </div>
-      </div>
-
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <button onClick={() => { setShowCreate(true); setError('') }} style={{
           flex: 1, padding: '12px 0',
@@ -163,38 +159,39 @@ export default function CampaignsPage() {
 
       {loading && <p style={{ color: '#555', textAlign: 'center' }}>Caricamento...</p>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {campaigns.map(c => (
-          <div key={c.id} onClick={() => setSelected(c)} style={{
-            background: '#16161f', border: '1px solid #2a2a3a',
-            borderRadius: 12, padding: 16, cursor: 'pointer', transition: 'border-color 0.2s'
-          }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a84c')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a3a')}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e0d0' }}>{c.name}</div>
-                {c.description && (
-                  <div style={{ color: '#666', fontSize: 13, marginTop: 4 }}>{c.description}</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                {c.master_id === userId && (
-                  <span style={{
-                    fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                    background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-                  }}>{UI_ICONS.master} Master</span>
-                )}
-                <span style={{
-                  fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                  background: '#2a2a3a', color: '#555', fontFamily: 'monospace', letterSpacing: 1
-                }}>{c.invite_code}</span>
-              </div>
-            </div>
+      {masterCampaigns.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            fontSize: 11, color: '#c9a84c', letterSpacing: 1,
+            textTransform: 'uppercase', fontWeight: 700, marginBottom: 12,
+            display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            {UI_ICONS.master} Le tue campagne
           </div>
-        ))}
-      </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {masterCampaigns.map(c => (
+              <CampaignCard key={c.id} campaign={c} isMaster={true} onClick={() => setSelected(c)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {playerCampaigns.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            fontSize: 11, color: '#5b8dd9', letterSpacing: 1,
+            textTransform: 'uppercase', fontWeight: 700, marginBottom: 12,
+            display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            {UI_ICONS.player} Campagne a cui partecipi
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {playerCampaigns.map(c => (
+              <CampaignCard key={c.id} campaign={c} isMaster={false} onClick={() => setSelected(c)} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {!loading && campaigns.length === 0 && (
         <div style={{ textAlign: 'center', color: '#444', marginTop: 60 }}>
@@ -204,7 +201,6 @@ export default function CampaignsPage() {
         </div>
       )}
 
-      {/* Modal Crea */}
       {showCreate && (
         <div style={modalStyle} onClick={() => setShowCreate(false)}>
           <div style={cardStyle} onClick={e => e.stopPropagation()}>
@@ -238,7 +234,6 @@ export default function CampaignsPage() {
         </div>
       )}
 
-      {/* Modal Entra */}
       {showJoin && (
         <div style={modalStyle} onClick={() => setShowJoin(false)}>
           <div style={cardStyle} onClick={e => e.stopPropagation()}>
@@ -264,11 +259,9 @@ export default function CampaignsPage() {
                   Nessun personaggio disponibile — creane uno prima!
                 </p>
               ) : (
-                <select
-                  value={selectedCharacterId}
+                <select value={selectedCharacterId}
                   onChange={e => setSelectedCharacterId(e.target.value)}
-                  style={{ width: '100%' }}
-                >
+                  style={{ width: '100%' }}>
                   <option value=''>Scegli un personaggio...</option>
                   {myCharacters.map(c => (
                     <option key={c.id} value={c.id}>
@@ -293,6 +286,71 @@ export default function CampaignsPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CampaignCard({
+  campaign,
+  isMaster,
+  onClick
+}: {
+  campaign: Campaign
+  isMaster: boolean
+  onClick: () => void
+}) {
+  const accentColor = isMaster ? '#c9a84c' : '#5b8dd9'
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: '#16161f',
+        border: '1px solid #2a2a3a',
+        borderLeft: `3px solid ${accentColor}`,
+        borderRadius: 12, padding: 16, cursor: 'pointer',
+        transition: 'background 0.2s'
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a24')}
+      onMouseLeave={e => (e.currentTarget.style.background = '#16161f')}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#e8e0d0' }}>
+              {campaign.name}
+            </span>
+            <span style={{
+              fontSize: 10, padding: '2px 8px', borderRadius: 4, flexShrink: 0,
+              background: accentColor + '22', color: accentColor,
+              border: `1px solid ${accentColor}44`, fontWeight: 600
+            }}>
+              {isMaster ? `${UI_ICONS.master} Master` : `${UI_ICONS.player} Giocatore`}
+            </span>
+          </div>
+          {campaign.description && (
+            <div style={{
+              color: '#666', fontSize: 13, marginBottom: 8,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {campaign.description}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontSize: 11, fontFamily: 'monospace', letterSpacing: 1,
+              color: '#444', background: '#1e1e2a',
+              padding: '2px 6px', borderRadius: 4, border: '1px solid #2a2a3a'
+            }}>
+              {campaign.invite_code}
+            </span>
+            <span style={{ fontSize: 11, color: '#444' }}>
+              {new Date(campaign.created_at).toLocaleDateString('it-IT')}
+            </span>
+          </div>
+        </div>
+        <div style={{ fontSize: 20, color: '#3a3a4a', marginLeft: 12, flexShrink: 0 }}>›</div>
+      </div>
     </div>
   )
 }

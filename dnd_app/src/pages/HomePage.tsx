@@ -123,7 +123,7 @@ export default function HomePage() {
                   background: '#16161f', border: '1px solid #2a2a3a',
                   borderRadius: 12, padding: 16, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 16,
-                  position: 'relative', transition: 'border-color 0.2s'
+                  transition: 'border-color 0.2s'
                 }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a84c')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a3a')}
@@ -154,7 +154,8 @@ export default function HomePage() {
                   </div>
                   <button onClick={e => handleDelete(c.id, e)} style={{
                     background: 'none', border: 'none',
-                    color: '#3a3a4a', fontSize: 20, padding: 4, transition: 'color 0.2s'
+                    color: '#3a3a4a', fontSize: 20, padding: 4,
+                    transition: 'color 0.2s', cursor: 'pointer'
                   }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#e05555')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#3a3a4a')}
