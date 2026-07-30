@@ -9,7 +9,7 @@ import MasterDashboard from '../components/MasterDashboard'
 import PlayerDashboard from '../components/PlayerDashboard'
 import MusicPlayer from '../components/MusicPlayer'
 import { useDialog } from '../components/Dialog'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS } from '../icons'
 
 interface Campaign {
   id: string
@@ -106,13 +106,13 @@ export default function CampaignPage({
   }
 
   const tabs = [
-    { key: 'dashboard', label: isMaster ? `${UI_ICONS.master} Dashboard` : `📊 Dashboard` },
+    { key: 'dashboard', label: isMaster ? `${UI_ICONS.master} Dashboard` : `${UI_ICONS.stats} Dashboard` },
     { key: 'sessions', label: `${UI_ICONS.session} Sessioni` },
     { key: 'notes', label: `${UI_ICONS.notes} Appunti` },
     { key: 'initiative', label: `${UI_ICONS.initiative} Iniziativa` },
     { key: 'members', label: `${UI_ICONS.group} Gruppo` },
     { key: 'dice', label: `${UI_ICONS.dice} Dadi` },
-    ...(isMaster ? [{ key: 'music' as Tab, label: '🎵 Musica' }] : []),
+    ...(isMaster ? [{ key: 'music' as Tab, label: `${UI_ICONS.music} Musica` }] : []),
   ] as { key: Tab, label: string }[]
 
   return (

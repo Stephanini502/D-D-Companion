@@ -1,25 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS, MUSIC_ICONS, MUSIC_CATEGORIES, getMusicCategory } from '../icons'
 import { useDialog } from './Dialog'
 import { Track } from '../models/Track'
 
 const AUDIO_BUCKET = 'campaign-audio'
-
-// Categorie predefinite (colore + icona per il tema dark/oro dell'app)
-const CATEGORIES: { name: string; color: string; icon: string }[] = [
-  { name: 'Combattimento', color: '#e05555', icon: '⚔️' },
-  { name: 'Boss', color: '#7c4daa', icon: '🐉' },
-  { name: 'Taverna', color: '#c9a84c', icon: '🍺' },
-  { name: 'Città', color: '#5b8dd9', icon: '🏰' },
-  { name: 'Esplorazione', color: '#4caf82', icon: '🗺️' },
-  { name: 'Tensione', color: '#e0894c', icon: '🕯️' },
-  { name: 'Riposo', color: '#6a9a8a', icon: '🌙' },
-  { name: 'Altro', color: '#888', icon: '🎵' },
-]
-function catMeta(name: string) {
-  return CATEGORIES.find(c => c.name === name) ?? { name, color: '#888', icon: '🎵' }
-}
 
 // --- YouTube ---
 function extractYouTubeId(url: string): string | null {
@@ -61,7 +46,7 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
   // Form
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState(CATEGORIES[0].name)
+  const [category, setCategory] = useState(MUSIC_CATEGORIES[0].name)
   const [mode, setMode] = useState<'youtube' | 'file'>('youtube')
   const [ytUrl, setYtUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -254,12 +239,12 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
 
   // Raggruppa per categoria, nell'ordine di CATEGORIES poi extra
   const grouped: { name: string; items: Track[] }[] = []
-  for (const c of CATEGORIES) {
+  for (const c of MUSIC_CATEGORIES) {
     const items = tracks.filter(t => t.category === c.name)
     if (items.length) grouped.push({ name: c.name, items })
   }
   for (const t of tracks) {
-    if (!CATEGORIES.some(c => c.name === t.category) && !grouped.some(g => g.name === t.category)) {
+    if (!MUSIC_CATEGORIES.some(c => c.name === t.category) && !grouped.some(g => g.name === t.category)) {
       grouped.push({ name: t.category, items: tracks.filter(x => x.category === t.category) })
     }
   }
@@ -283,7 +268,7 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
 
       {/* Header + aggiungi */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 16 }}>🎵 Jukebox</div>
+        <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 16 }}>{UI_ICONS.music} Jukebox</div>
         <button onClick={() => { setShowForm(v => !v); setFormError('') }} style={{
           background: 'linear-gradient(135deg, #c9a84c, #a07830)',
           border: 'none', color: '#0f0f13', borderRadius: 6,
@@ -313,7 +298,7 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
                     background: mode === m ? '#c9a84c22' : '#16161f',
                     border: `1px solid ${mode === m ? '#c9a84c' : '#2a2a3a'}`,
                     color: mode === m ? '#c9a84c' : '#666', fontWeight: mode === m ? 700 : 400,
-                  }}>{m === 'youtube' ? '▶ YouTube' : '📁 File'}</button>
+                  }}>{m === 'youtube' ? `${MUSIC_ICONS.youtube} YouTube` : `${MUSIC_ICONS.file} File`}</button>
                 ))}
               </div>
             </div>
@@ -351,11 +336,11 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
         <p style={{ color: '#555', textAlign: 'center', padding: 20 }}>Caricamento...</p>
       ) : tracks.length === 0 ? (
         <p style={{ color: '#444', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-          Nessun brano ancora. Aggiungi la colonna sonora della tua sessione! 🎶
+          Nessun brano ancora. Aggiungi la colonna sonora della tua sessione! {UI_ICONS.musicNotes}
         </p>
       ) : (
         grouped.map(group => {
-          const meta = catMeta(group.name)
+          const meta = getMusicCategory(group.name)
           return (
             <div key={group.name} style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: meta.color, marginBottom: 10, letterSpacing: 0.5 }}>
@@ -375,14 +360,14 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
                         width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
                         background: active ? meta.color : '#2a2a3a', border: 'none',
                         color: active ? '#0f0f13' : '#c9a84c', cursor: 'pointer', fontSize: 12
-                      }}>{active && isPlaying ? '⏸' : '▶'}</button>
+                      }}>{active && isPlaying ? MUSIC_ICONS.pause : MUSIC_ICONS.play}</button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           fontSize: 13, fontWeight: 600, color: active ? meta.color : '#e8e0d0',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                         }}>{t.title}</div>
                         <div style={{ fontSize: 10, color: '#555' }}>
-                          {t.source_type === 'youtube' ? '▶ YouTube' : '📁 File'}
+                          {t.source_type === 'youtube' ? `${MUSIC_ICONS.youtube} YouTube` : `${MUSIC_ICONS.file} File`}
                         </div>
                       </div>
                       <button onClick={() => deleteTrack(t)} style={{
@@ -418,7 +403,7 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
           >
             <div style={{
               height: '100%', width: `${dur ? Math.min(100, (pos / dur) * 100) : 0}%`,
-              background: catMeta(current.category).color, borderRadius: 3, transition: 'width 0.3s'
+              background: getMusicCategory(current.category).color, borderRadius: 3, transition: 'width 0.3s'
             }} />
           </div>
 
@@ -429,15 +414,15 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
               }}>{current.title}</div>
               <div style={{ fontSize: 10, color: '#666' }}>
-                {catMeta(current.category).icon} {current.category} · {fmtTime(pos)} / {fmtTime(dur)}
+                {getMusicCategory(current.category).icon} {current.category} · {fmtTime(pos)} / {fmtTime(dur)}
               </div>
             </div>
-            <button onClick={playPrev} style={ctrlBtn}>⏮</button>
+            <button onClick={playPrev} style={ctrlBtn}>{MUSIC_ICONS.prev}</button>
             <button onClick={togglePlay} style={{ ...ctrlBtn, width: 44, height: 44, fontSize: 18, background: '#c9a84c', color: '#0f0f13', border: 'none' }}>
-              {isPlaying ? '⏸' : '▶'}
+              {isPlaying ? MUSIC_ICONS.pause : MUSIC_ICONS.play}
             </button>
-            <button onClick={playNext} style={ctrlBtn}>⏭</button>
-            <button onClick={stop} style={{ ...ctrlBtn, color: '#e05555', borderColor: '#e0555544' }}>✕</button>
+            <button onClick={playNext} style={ctrlBtn}>{MUSIC_ICONS.next}</button>
+            <button onClick={stop} style={{ ...ctrlBtn, color: '#e05555', borderColor: '#e0555544' }}>{MUSIC_ICONS.stop}</button>
           </div>
         </div>
       )}

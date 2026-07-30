@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Item } from '../models/item'
-import { getCategoryIcon, UI_ICONS } from '../data/icons'
+import { getCategoryIcon, UI_ICONS } from '../icons'
 
 interface CatalogItem {
   id: string

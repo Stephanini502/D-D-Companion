@@ -1,23 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS, RELATIONSHIP_COLORS, QUEST_STATUS } from '../icons'
 import { Member } from '../models/Member'
 import { Quest } from '../models/Quest'
 import { NPC } from '../models/NPC'
 import { Loot } from '../models/Loot'
 import { XPLog } from '../models/XPLog'
-
-const RELATIONSHIP_COLORS: Record<string, string> = {
-  alleato: '#4caf82',
-  neutrale: '#c9a84c',
-  nemico: '#e05555',
-}
-
-const STATUS_CONFIG = {
-  active: { label: 'Attiva', color: '#4caf82' },
-  completed: { label: 'Completata', color: '#c9a84c' },
-  failed: { label: 'Fallita', color: '#e05555' },
-}
 
 export default function MasterDashboard({
   campaignId,
@@ -197,10 +185,10 @@ export default function MasterDashboard({
       {/* Riepilogo rapido */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
         {[
-          { label: 'Quest Attive', value: activeQuests.length, icon: '⚔️', color: '#4caf82' },
-          { label: 'PNG', value: npcs.length, icon: '👥', color: '#5b8dd9' },
-          { label: 'Loot da dare', value: undistributedLoot.length, icon: '💎', color: '#c9a84c' },
-          { label: 'XP da dare', value: totalXp, icon: '⭐', color: '#7c4daa' },
+          { label: 'Quest Attive', value: activeQuests.length, icon: UI_ICONS.quest, color: '#4caf82' },
+          { label: 'PNG', value: npcs.length, icon: UI_ICONS.npc, color: '#5b8dd9' },
+          { label: 'Loot da dare', value: undistributedLoot.length, icon: UI_ICONS.loot, color: '#c9a84c' },
+          { label: 'XP da dare', value: totalXp, icon: UI_ICONS.xp, color: '#7c4daa' },
         ].map(stat => (
           <div key={stat.label} style={{
             background: '#16161f', border: `1px solid ${stat.color}44`,
@@ -219,9 +207,9 @@ export default function MasterDashboard({
       {/* Switcher Pre/Durante/Post */}
       <div style={{ display: 'flex', gap: 6 }}>
         {([
-          { key: 'prep', label: '📋 Pre-Sessione' },
-          { key: 'session', label: '⚔️ Durante' },
-          { key: 'post', label: '🏆 Post-Sessione' },
+          { key: 'prep', label: `${UI_ICONS.prep} Pre-Sessione` },
+          { key: 'session', label: `${UI_ICONS.during} Durante` },
+          { key: 'post', label: `${UI_ICONS.post} Post-Sessione` },
         ] as const).map(s => (
           <button key={s.key} onClick={() => setSection(s.key)} style={{
             flex: 1, padding: '8px 4px', fontSize: 11,
@@ -241,7 +229,7 @@ export default function MasterDashboard({
           {/* Quest tracker */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>⚔️ Quest</div>
+              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.quest} Quest</div>
               <button onClick={() => setShowQuestForm(true)} style={{
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 border: 'none', color: '#0f0f13', borderRadius: 6,
@@ -279,7 +267,7 @@ export default function MasterDashboard({
               {quests.map(quest => (
                 <div key={quest.id} style={{
                   background: '#1e1e2a', borderRadius: 8, overflow: 'hidden',
-                  border: `1px solid ${STATUS_CONFIG[quest.status].color}33`
+                  border: `1px solid ${QUEST_STATUS[quest.status].color}33`
                 }}>
                   <div
                     onClick={() => setExpandedQuest(expandedQuest === quest.id ? null : quest.id)}
@@ -289,10 +277,10 @@ export default function MasterDashboard({
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>{quest.title}</span>
                       <span style={{
                         marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                        background: STATUS_CONFIG[quest.status].color + '22',
-                        color: STATUS_CONFIG[quest.status].color,
-                        border: `1px solid ${STATUS_CONFIG[quest.status].color}44`
-                      }}>{STATUS_CONFIG[quest.status].label}</span>
+                        background: QUEST_STATUS[quest.status].color + '22',
+                        color: QUEST_STATUS[quest.status].color,
+                        border: `1px solid ${QUEST_STATUS[quest.status].color}44`
+                      }}>{QUEST_STATUS[quest.status].label}</span>
                     </div>
                     <span style={{ color: '#555', fontSize: 11 }}>{expandedQuest === quest.id ? '▲' : '▼'}</span>
                   </div>
@@ -307,11 +295,11 @@ export default function MasterDashboard({
                         {(['active', 'completed', 'failed'] as const).map(s => (
                           <button key={s} onClick={() => updateQuestStatus(quest.id, s)} style={{
                             fontSize: 11, padding: '3px 10px', borderRadius: 4,
-                            background: quest.status === s ? STATUS_CONFIG[s].color + '33' : '#2a2a3a',
-                            color: quest.status === s ? STATUS_CONFIG[s].color : '#555',
-                            border: `1px solid ${quest.status === s ? STATUS_CONFIG[s].color : '#3a3a4a'}`,
+                            background: quest.status === s ? QUEST_STATUS[s].color + '33' : '#2a2a3a',
+                            color: quest.status === s ? QUEST_STATUS[s].color : '#555',
+                            border: `1px solid ${quest.status === s ? QUEST_STATUS[s].color : '#3a3a4a'}`,
                             cursor: 'pointer'
-                          }}>{STATUS_CONFIG[s].label}</button>
+                          }}>{QUEST_STATUS[s].label}</button>
                         ))}
                         <button onClick={() => deleteQuest(quest.id)} style={{
                           fontSize: 11, padding: '3px 10px', borderRadius: 4,
@@ -329,7 +317,7 @@ export default function MasterDashboard({
           {/* PNG / NPC */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>👥 PNG Importanti</div>
+              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.npc} PNG Importanti</div>
               <button onClick={() => setShowNpcForm(true)} style={{
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 border: 'none', color: '#0f0f13', borderRadius: 6,
@@ -427,7 +415,7 @@ export default function MasterDashboard({
           {/* Loot pianificato */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>💎 Loot Pianificato</div>
+              <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.loot} Loot Pianificato</div>
               <button onClick={() => setShowLootForm(true)} style={{
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 border: 'none', color: '#0f0f13', borderRadius: 6,
@@ -481,7 +469,7 @@ export default function MasterDashboard({
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>
                       {item.name}
                       {item.distributed && (
-                        <span style={{ marginLeft: 8, fontSize: 10, color: '#4caf82' }}>✓ Distribuito</span>
+                        <span style={{ marginLeft: 8, fontSize: 10, color: '#4caf82' }}>{UI_ICONS.check} Distribuito</span>
                       )}
                     </div>
                     {item.description && (
@@ -523,7 +511,7 @@ export default function MasterDashboard({
           {/* Stato gruppo */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-              👥 Stato del Gruppo
+              {UI_ICONS.group} Stato del Gruppo
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {members.map(m => {
@@ -572,7 +560,7 @@ export default function MasterDashboard({
           {/* Quest attive */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-              ⚔️ Quest Attive
+              {UI_ICONS.quest} Quest Attive
             </div>
             {activeQuests.length === 0 && (
               <p style={{ color: '#444', fontSize: 13, textAlign: 'center' }}>Nessuna quest attiva.</p>
@@ -589,12 +577,12 @@ export default function MasterDashboard({
                       fontSize: 11, padding: '3px 8px', borderRadius: 4,
                       background: '#4caf8222', color: '#4caf82',
                       border: '1px solid #4caf8244', cursor: 'pointer'
-                    }}>✓</button>
+                    }}>{UI_ICONS.check}</button>
                     <button onClick={() => updateQuestStatus(quest.id, 'failed')} style={{
                       fontSize: 11, padding: '3px 8px', borderRadius: 4,
                       background: '#e0555522', color: '#e05555',
                       border: '1px solid #e0555544', cursor: 'pointer'
-                    }}>✗</button>
+                    }}>{UI_ICONS.cross}</button>
                   </div>
                 </div>
               ))}
@@ -611,7 +599,7 @@ export default function MasterDashboard({
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>⭐ Punti Esperienza</div>
+                <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.xp} Punti Esperienza</div>
                 {totalXp > 0 && (
                   <div style={{ fontSize: 11, color: '#7c4daa', marginTop: 2 }}>
                     {totalXp} XP da distribuire
@@ -662,7 +650,7 @@ export default function MasterDashboard({
                       <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>{entry.reason}</span>
                     )}
                     {entry.distributed && (
-                      <span style={{ fontSize: 10, color: '#4caf82', marginLeft: 8 }}>✓ Distribuito</span>
+                      <span style={{ fontSize: 10, color: '#4caf82', marginLeft: 8 }}>{UI_ICONS.check} Distribuito</span>
                     )}
                   </div>
                   {!entry.distributed && (
@@ -684,7 +672,7 @@ export default function MasterDashboard({
           {undistributedLoot.length > 0 && (
             <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
               <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-                💎 Loot da Distribuire
+                {UI_ICONS.loot} Loot da Distribuire
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {undistributedLoot.map(item => (
@@ -721,7 +709,7 @@ export default function MasterDashboard({
             borderRadius: 12, padding: 16
           }}>
             <div style={{ fontWeight: 700, color: '#c9a84c', fontSize: 14, marginBottom: 8 }}>
-              📖 Vuoi creare il riassunto della sessione?
+              {UI_ICONS.summary} Vuoi creare il riassunto della sessione?
             </div>
             <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
               Vai nel tab Sessioni per aggiungere un riassunto di questa sessione con immagini e note.

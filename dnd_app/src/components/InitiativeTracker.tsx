@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useDialog } from './Dialog'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS } from '../icons'
 
 interface Combatant {
   id: string

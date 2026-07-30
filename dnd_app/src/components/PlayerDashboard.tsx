@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { UI_ICONS } from '../data/icons'
-import { getClassIcon } from '../data/icons'
+import { UI_ICONS, getClassIcon, getRelationshipColor, QUEST_STATUS } from '../icons'
 import { Quest } from '../models/Quest'
 import { Environment } from '../models/Environment'
 import { Handout } from '../models/Handout'
 import { DiaryEntry } from '../models/DiaryEntry'
 import { Goal } from '../models/Goal'
 import { Character } from '../models/character'
-
-const STATUS_CONFIG = {
-  active: { label: 'Attiva', color: '#4caf82' },
-  completed: { label: 'Completata', color: '#c9a84c' },
-  failed: { label: 'Fallita', color: '#e05555' },
-}
 
 const BUCKET = 'campaign-images'
 
@@ -269,32 +262,32 @@ export default function PlayerDashboard({
             fontSize: 11, color: '#5b8dd9', letterSpacing: 1,
             textTransform: 'uppercase', fontWeight: 700, marginBottom: 10
           }}>
-            🌍 Ambientazione Attuale
+            {UI_ICONS.environment} Ambientazione Attuale
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {environment.location && (
               <span style={{
                 fontSize: 13, padding: '4px 12px', borderRadius: 20,
                 background: '#5b8dd922', color: '#5b8dd9', border: '1px solid #5b8dd944'
-              }}>📍 {environment.location}</span>
+              }}>{UI_ICONS.location} {environment.location}</span>
             )}
             {environment.weather && (
               <span style={{
                 fontSize: 13, padding: '4px 12px', borderRadius: 20,
                 background: '#4caf8222', color: '#4caf82', border: '1px solid #4caf8244'
-              }}>🌤 {environment.weather}</span>
+              }}>{UI_ICONS.weather} {environment.weather}</span>
             )}
             {environment.time_of_day && (
               <span style={{
                 fontSize: 13, padding: '4px 12px', borderRadius: 20,
                 background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-              }}>🕐 {environment.time_of_day}</span>
+              }}>{UI_ICONS.time} {environment.time_of_day}</span>
             )}
             {environment.atmosphere && (
               <span style={{
                 fontSize: 13, padding: '4px 12px', borderRadius: 20,
                 background: '#7c4daa22', color: '#7c4daa', border: '1px solid #7c4daa44'
-              }}>✨ {environment.atmosphere}</span>
+              }}>{UI_ICONS.atmosphere} {environment.atmosphere}</span>
             )}
           </div>
         </div>
@@ -303,9 +296,9 @@ export default function PlayerDashboard({
       {/* Switcher sezioni */}
       <div style={{ display: 'flex', gap: 6 }}>
         {([
-          { key: 'overview', label: '📊 Panoramica' },
-          { key: 'diary', label: '📖 Diario' },
-          { key: 'goals', label: '🎯 Obiettivi' },
+          { key: 'overview', label: `${UI_ICONS.overview} Panoramica` },
+          { key: 'diary', label: `${UI_ICONS.diary} Diario` },
+          { key: 'goals', label: `${UI_ICONS.goals} Obiettivi` },
         ] as const).map(s => (
           <button key={s.key} onClick={() => setSection(s.key)} style={{
             flex: 1, padding: '8px 4px', fontSize: 11,
@@ -325,7 +318,7 @@ export default function PlayerDashboard({
           {/* Quest */}
           <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
             <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-              ⚔️ Quest ({activeQuests.length} attive)
+              {UI_ICONS.quest} Quest ({activeQuests.length} attive)
             </div>
             {quests.length === 0 && (
               <p style={{ color: '#444', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
@@ -336,7 +329,7 @@ export default function PlayerDashboard({
               {quests.map(quest => (
                 <div key={quest.id} style={{
                   background: '#1e1e2a', borderRadius: 8, overflow: 'hidden',
-                  border: `1px solid ${STATUS_CONFIG[quest.status].color}33`
+                  border: `1px solid ${QUEST_STATUS[quest.status].color}33`
                 }}>
                   <div
                     onClick={() => setExpandedQuest(expandedQuest === quest.id ? null : quest.id)}
@@ -346,10 +339,10 @@ export default function PlayerDashboard({
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>{quest.title}</span>
                       <span style={{
                         marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                        background: STATUS_CONFIG[quest.status].color + '22',
-                        color: STATUS_CONFIG[quest.status].color,
-                        border: `1px solid ${STATUS_CONFIG[quest.status].color}44`
-                      }}>{STATUS_CONFIG[quest.status].label}</span>
+                        background: QUEST_STATUS[quest.status].color + '22',
+                        color: QUEST_STATUS[quest.status].color,
+                        border: `1px solid ${QUEST_STATUS[quest.status].color}44`
+                      }}>{QUEST_STATUS[quest.status].label}</span>
                     </div>
                     <span style={{ color: '#555', fontSize: 11 }}>
                       {expandedQuest === quest.id ? '▲' : '▼'}
@@ -372,12 +365,11 @@ export default function PlayerDashboard({
           {npcs.length > 0 && (
             <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
               <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-                👥 Personaggi Importanti
+                {UI_ICONS.npc} Personaggi Importanti
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {npcs.map(npc => {
-                  const relColor = npc.relationship === 'alleato' ? '#4caf82'
-                    : npc.relationship === 'nemico' ? '#e05555' : '#c9a84c'
+                  const relColor = getRelationshipColor(npc.relationship)
                   return (
                     <div key={npc.id} style={{
                       background: '#1e1e2a', borderRadius: 8, overflow: 'hidden',
@@ -428,7 +420,7 @@ export default function PlayerDashboard({
           {handouts.length > 0 && (
             <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
               <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-                📨 Messaggi dal Master
+                {UI_ICONS.handout} Messaggi dal Master
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {handouts.map(h => (
@@ -481,7 +473,7 @@ export default function PlayerDashboard({
           {character && (
             <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
               <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14, marginBottom: 12 }}>
-                📊 Statistiche
+                {UI_ICONS.stats} Statistiche
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {Object.entries(character.stats).map(([key, val]) => {
@@ -508,7 +500,7 @@ export default function PlayerDashboard({
       {section === 'diary' && (
         <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>📖 Diario Personale</div>
+            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.diary} Diario Personale</div>
             <div style={{ fontSize: 11, color: '#444' }}>Visibile solo a te</div>
           </div>
           <textarea
@@ -531,7 +523,7 @@ export default function PlayerDashboard({
               transition: 'all 0.2s'
             }}
           >
-            {savingDiary ? 'Salvataggio...' : diaryChanged ? '💾 Salva Diario' : '✓ Salvato'}
+            {savingDiary ? 'Salvataggio...' : diaryChanged ? `${UI_ICONS.save} Salva Diario` : `${UI_ICONS.check} Salvato`}
           </button>
           {diary && (
             <p style={{ fontSize: 11, color: '#444', textAlign: 'center', marginTop: 8 }}>
@@ -545,7 +537,7 @@ export default function PlayerDashboard({
       {section === 'goals' && (
         <div style={{ background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>🎯 Obiettivi del Personaggio</div>
+            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 14 }}>{UI_ICONS.goals} Obiettivi del Personaggio</div>
             <button onClick={() => setShowGoalForm(true)} style={{
               background: 'linear-gradient(135deg, #c9a84c, #a07830)',
               border: 'none', color: '#0f0f13', borderRadius: 6,
@@ -598,7 +590,7 @@ export default function PlayerDashboard({
                     cursor: 'pointer', fontSize: 12, color: '#0f0f13', fontWeight: 700
                   }}
                 >
-                  {goal.completed ? '✓' : ''}
+                  {goal.completed ? UI_ICONS.check : ''}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{

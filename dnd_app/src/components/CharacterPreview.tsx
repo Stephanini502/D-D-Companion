@@ -4,7 +4,7 @@ import type { Character } from '../models/character'
 import type { Item } from '../models/item'
 import type { Spell } from '../models/spell'
 import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
-import { getClassIcon, getSchoolColor, getCategoryIcon, UI_ICONS } from '../data/icons'
+import { getClassIcon, getSchoolColor, getCategoryIcon, UI_ICONS } from '../icons'
 import { SKILLS, getSkillBonus, formatBonus } from '../data/skills'
 
 const BUCKET = 'characters-images'

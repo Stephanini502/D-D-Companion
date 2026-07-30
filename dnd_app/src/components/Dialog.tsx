@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS } from '../icons'
 
 interface DialogOptions {
   title: string

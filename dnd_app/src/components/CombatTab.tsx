@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import { calculateAC, detectArmorType, getArmorCategoryLabel } from '../data/armorTypes'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS } from '../icons'
 
 interface Item {
   id: string

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SKILLS, getSkillBonus, formatBonus } from '../data/skills'
 import { getProficiencyBonus } from '../data/raceTraits'
-import { UI_ICONS } from '../data/icons'
+import { UI_ICONS } from '../icons'
 
 interface Talent {
   id: string

@@ -7,7 +7,7 @@ import CombatTab from '../components/CombatTab'
 import AbilitiesTab from '../components/AbilitiesTab'
 import { useDialog } from '../components/Dialog'
 import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
-import { getClassIcon, UI_ICONS } from '../data/icons'
+import { getClassIcon, UI_ICONS } from '../icons'
 
 type Tab = 'stats' | 'spells' | 'inventory' | 'combat' | 'abilities'
 
@@ -165,8 +165,8 @@ export default function CharacterPage({
   const darkvision = getDarkvision(char.race)
 
   const tabs = [
-    { key: 'stats', label: `📊 Stats` },
-    { key: 'abilities', label: `🎯 Abilità` },
+    { key: 'stats', label: `${UI_ICONS.stats} Stats` },
+    { key: 'abilities', label: `${UI_ICONS.skills} Abilità` },
     { key: 'spells', label: `${UI_ICONS.spells} Magie` },
     { key: 'inventory', label: `${UI_ICONS.inventory} Zaino` },
     { key: 'combat', label: `${UI_ICONS.combat} Lotta` },
@@ -222,7 +222,7 @@ export default function CharacterPage({
               <button onClick={openEdit} title="Modifica livello e caratteristiche" style={{
                 background: 'none', border: '1px solid #2a2a3a', color: '#c9a84c',
                 borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer'
-              }}>{UI_ICONS.edit ?? '✏️'} Modifica</button>
+              }}>{UI_ICONS.edit} Modifica</button>
             </p>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -468,7 +468,7 @@ export default function CharacterPage({
             padding: 20, width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto'
           }}>
             <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 16, marginBottom: 16 }}>
-              ✏️ Modifica Personaggio
+              {UI_ICONS.edit} Modifica Personaggio
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -509,7 +509,7 @@ export default function CharacterPage({
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 border: 'none', color: '#0f0f13', borderRadius: 8, fontWeight: 700,
                 cursor: savingEdit ? 'default' : 'pointer'
-              }}>{savingEdit ? 'Salvataggio...' : '💾 Salva'}</button>
+              }}>{savingEdit ? 'Salvataggio...' : `${UI_ICONS.save} Salva`}</button>
               <button onClick={() => setShowEdit(false)} disabled={savingEdit} style={{
                 padding: '10px 16px', background: 'none',
                 border: '1px solid #2a2a3a', color: '#888', borderRadius: 8, cursor: 'pointer'

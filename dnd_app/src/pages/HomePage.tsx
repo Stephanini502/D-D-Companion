@@ -5,7 +5,7 @@ import CreateCharacterPage from './CreateCharacterPage'
 import CharacterPage from './CharacterPage'
 import CampaignsPage from './CampaignsPage'
 import { useDialog } from '../components/Dialog'
-import { getClassIcon, UI_ICONS, SECTION_LABELS } from '../data/icons'
+import { getClassIcon, UI_ICONS, SECTION_LABELS } from '../icons'
 
 type Section = 'characters' | 'campaigns'
 

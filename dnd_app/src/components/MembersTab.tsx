@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useDialog } from './Dialog'
 import CharacterPreview from './CharacterPreview'
+import { getClassIcon, UI_ICONS } from '../icons'
 
 interface Member {
   id: string
@@ -23,12 +24,6 @@ interface CharacterInfo {
 }
 
 const BUCKET = 'characters-images'
-
-const classIcons: Record<string, string> = {
-  Barbarian: '🪓', Bard: '🎵', Cleric: '✝️', Druid: '🌿',
-  Fighter: '⚔️', Monk: '👊', Paladin: '🛡️', Ranger: '🏹',
-  Rogue: '🗡️', Sorcerer: '✨', Warlock: '👁️', Wizard: '📚'
-}
 
 export default function MembersTab({
   campaignId,
@@ -154,7 +149,7 @@ async function loadMembers() {
             color: '#c9a84c', borderRadius: 8, fontWeight: 700, fontSize: 14
           }}
         >
-          🔄 Cambia il tuo personaggio
+          {UI_ICONS.refresh} Cambia il tuo personaggio
         </button>
       )}
 
@@ -168,7 +163,7 @@ async function loadMembers() {
             background: '#16161f', border: '1px solid #2a2a3a',
             borderRadius: 16, padding: 24, width: '90%', maxWidth: 400
           }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#c9a84c', margin: '0 0 16px' }}>🔄 Cambia Personaggio</h3>
+            <h3 style={{ color: '#c9a84c', margin: '0 0 16px' }}>{UI_ICONS.refresh} Cambia Personaggio</h3>
 
             {myCharacters.length === 0 ? (
               <p style={{ color: '#555', fontSize: 13 }}>
@@ -201,7 +196,7 @@ async function loadMembers() {
                       display: 'flex', alignItems: 'center', gap: 10
                     }}
                   >
-                    <span style={{ fontSize: 24 }}>{classIcons[c.character_class] ?? '🧙'}</span>
+                    <span style={{ fontSize: 24 }}>{getClassIcon(c.character_class)}</span>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: newCharacterId === c.id ? '#c9a84c' : '#e8e0d0' }}>
                         {c.name}
@@ -247,7 +242,7 @@ async function loadMembers() {
           <span style={{
             fontSize: 11, padding: '2px 8px', borderRadius: 4,
             background: '#c9a84c22', color: '#c9a84c', border: '1px solid #c9a84c44'
-          }}>👑 Master</span>
+          }}>{UI_ICONS.master} Master</span>
         </div>
 
         {/* Giocatori */}
@@ -286,7 +281,7 @@ async function loadMembers() {
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: 24 }}>
-                      {char ? (classIcons[char.character_class] ?? '🧙') : '👤'}
+                      {char ? getClassIcon(char.character_class) : UI_ICONS.character}
                     </span>
                   )}
                 </div>
@@ -324,7 +319,7 @@ async function loadMembers() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  {char && <span style={{ fontSize: 11, color: '#555' }}>👁️</span>}
+                  {char && <span style={{ fontSize: 11, color: '#555' }}>{UI_ICONS.perception}</span>}
                   {isMaster && (
                     <button
                       onClick={e => { e.stopPropagation(); handleRemoveMember(m) }}
@@ -344,7 +339,7 @@ async function loadMembers() {
 
         {members.length === 0 && (
           <div style={{ textAlign: 'center', color: '#444', padding: 40 }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.group}</div>
             <p>Nessun giocatore ancora.</p>
             <p style={{ fontSize: 13, color: '#555', marginTop: 4 }}>
               Condividi il codice <strong style={{ color: '#c9a84c' }}>{inviteCode}</strong>

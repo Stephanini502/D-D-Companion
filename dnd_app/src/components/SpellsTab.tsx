@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Spell } from '../models/spell'
-import { getSchoolColor, UI_ICONS } from '../data/icons'
+import { getSchoolColor, UI_ICONS } from '../icons'
 
 interface CatalogSpell {
   id: string
