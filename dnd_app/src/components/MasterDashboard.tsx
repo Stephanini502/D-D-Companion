@@ -7,6 +7,8 @@ import { NPC } from '../models/NPC'
 import { Loot } from '../models/Loot'
 import { XPLog } from '../models/XPLog'
 
+const NPC_BUCKET = 'campaign-images'
+
 export default function MasterDashboard({
   campaignId,
 }: {
@@ -33,6 +35,9 @@ export default function MasterDashboard({
   const [npcDesc, setNpcDesc] = useState('')
   const [npcRelationship, setNpcRelationship] = useState<'alleato' | 'neutrale' | 'nemico'>('neutrale')
   const [npcNotes, setNpcNotes] = useState('')
+  const [npcImage, setNpcImage] = useState<File | null>(null)
+  const [npcImagePreview, setNpcImagePreview] = useState<string | null>(null)
+  const [savingNpc, setSavingNpc] = useState(false)
 
   // Form loot
   const [showLootForm, setShowLootForm] = useState(false)
@@ -116,19 +121,47 @@ export default function MasterDashboard({
   }
 
   // NPC
+  function npcImageUrl(path: string) {
+    return supabase.storage.from(NPC_BUCKET).getPublicUrl(path).data.publicUrl
+  }
+
+  function resetNpcForm() {
+    setNpcName(''); setNpcRole(''); setNpcDesc(''); setNpcNotes('')
+    setNpcRelationship('neutrale'); setNpcImage(null); setNpcImagePreview(null)
+    setShowNpcForm(false)
+  }
+
   async function addNpc() {
     if (!npcName) return
+    setSavingNpc(true)
+    let image_path: string | null = null
+    if (npcImage) {
+      const safe = npcImage.name.replace(/[^\w.\-]/g, '_')
+      const path = `npcs/${campaignId}/${Date.now()}_${safe}`
+      const { error } = await supabase.storage.from(NPC_BUCKET).upload(path, npcImage, { upsert: false })
+      if (!error) image_path = path
+    }
     await supabase.from('campaign_npcs').insert({
       campaign_id: campaignId, name: npcName, role: npcRole,
-      description: npcDesc, relationship: npcRelationship, notes: npcNotes
+      description: npcDesc, relationship: npcRelationship, notes: npcNotes,
+      image_path,
     })
-    setNpcName(''); setNpcRole(''); setNpcDesc(''); setNpcNotes('')
-    setNpcRelationship('neutrale'); setShowNpcForm(false); loadNpcs()
+    setSavingNpc(false)
+    resetNpcForm()
+    loadNpcs()
   }
 
   async function deleteNpc(id: string) {
+    const npc = npcs.find(n => n.id === id)
+    if (npc?.image_path) await supabase.storage.from(NPC_BUCKET).remove([npc.image_path])
     await supabase.from('campaign_npcs').delete().eq('id', id)
     loadNpcs()
+  }
+
+  function onNpcImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null
+    setNpcImage(f)
+    setNpcImagePreview(f ? URL.createObjectURL(f) : null)
   }
 
   // LOOT
@@ -345,13 +378,38 @@ export default function MasterDashboard({
                 <textarea placeholder="Note private del master..." value={npcNotes}
                   onChange={e => setNpcNotes(e.target.value)}
                   rows={2} style={{ width: '100%', resize: 'vertical', marginBottom: 8 }} />
+
+                {/* Immagine PNG (opzionale) */}
+                <div style={{ marginBottom: 8 }}>
+                  {npcImagePreview ? (
+                    <div style={{ position: 'relative', width: 84, height: 84 }}>
+                      <img src={npcImagePreview} alt="anteprima"
+                        style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8, border: '1px solid #3a3a4a' }} />
+                      <button onClick={() => { setNpcImage(null); setNpcImagePreview(null) }} style={{
+                        position: 'absolute', top: -8, right: -8, width: 22, height: 22, borderRadius: '50%',
+                        background: '#e05555', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: 1
+                      }}>{UI_ICONS.close}</button>
+                    </div>
+                  ) : (
+                    <label style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                      fontSize: 12, color: '#888', padding: '6px 12px',
+                      background: '#16161f', border: '1px dashed #3a3a4a', borderRadius: 8
+                    }}>
+                      {UI_ICONS.photo} Immagine PNG (opzionale)
+                      <input type="file" accept="image/*" onChange={onNpcImageChange} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={addNpc} style={{
+                  <button onClick={addNpc} disabled={savingNpc} style={{
                     flex: 1, padding: '6px 0',
                     background: 'linear-gradient(135deg, #c9a84c, #a07830)',
-                    border: 'none', color: '#0f0f13', borderRadius: 6, fontWeight: 700, cursor: 'pointer'
-                  }}>Salva</button>
-                  <button onClick={() => setShowNpcForm(false)} style={{
+                    border: 'none', color: '#0f0f13', borderRadius: 6, fontWeight: 700,
+                    cursor: savingNpc ? 'default' : 'pointer'
+                  }}>{savingNpc ? 'Salvataggio...' : 'Salva'}</button>
+                  <button onClick={resetNpcForm} disabled={savingNpc} style={{
                     padding: '6px 12px', background: 'none',
                     border: '1px solid #2a2a3a', color: '#888', borderRadius: 6, cursor: 'pointer'
                   }}>Annulla</button>
@@ -373,19 +431,29 @@ export default function MasterDashboard({
                     onClick={() => setExpandedNpc(expandedNpc === npc.id ? null : npc.id)}
                     style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>{npc.name}</span>
-                      {npc.role && <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>{npc.role}</span>}
-                      <span style={{
-                        marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                        background: (RELATIONSHIP_COLORS[npc.relationship] ?? '#555') + '22',
-                        color: RELATIONSHIP_COLORS[npc.relationship] ?? '#555',
-                      }}>{npc.relationship}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      {npc.image_path && (
+                        <img src={npcImageUrl(npc.image_path)} alt={npc.name}
+                          style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #3a3a4a' }} />
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>{npc.name}</span>
+                        {npc.role && <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>{npc.role}</span>}
+                        <span style={{
+                          marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
+                          background: (RELATIONSHIP_COLORS[npc.relationship] ?? '#555') + '22',
+                          color: RELATIONSHIP_COLORS[npc.relationship] ?? '#555',
+                        }}>{npc.relationship}</span>
+                      </div>
                     </div>
-                    <span style={{ color: '#555', fontSize: 11 }}>{expandedNpc === npc.id ? '▲' : '▼'}</span>
+                    <span style={{ color: '#555', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>{expandedNpc === npc.id ? '▲' : '▼'}</span>
                   </div>
                   {expandedNpc === npc.id && (
                     <div style={{ padding: '0 12px 12px', borderTop: '1px solid #2a2a3a' }}>
+                      {npc.image_path && (
+                        <img src={npcImageUrl(npc.image_path)} alt={npc.name}
+                          style={{ width: '100%', borderRadius: 8, marginTop: 8, border: '1px solid #2a2a3a' }} />
+                      )}
                       {npc.description && (
                         <p style={{ fontSize: 12, color: '#888', marginTop: 8, marginBottom: 6, whiteSpace: 'pre-wrap' }}>
                           {npc.description}

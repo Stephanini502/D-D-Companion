@@ -42,7 +42,7 @@ export default function PlayerDashboard({
   const [expandedQuest, setExpandedQuest] = useState<string | null>(null)
 
   // NPCs
-  const [npcs, setNpcs] = useState<{id: string, name: string, role: string, description: string, relationship: string}[]>([])
+  const [npcs, setNpcs] = useState<{id: string, name: string, role: string, description: string, relationship: string, image_path?: string | null}[]>([])
   const [expandedNpc, setExpandedNpc] = useState<string | null>(null)
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function PlayerDashboard({
   async function loadNpcs() {
   const { data } = await supabase
     .from('campaign_npcs')
-    .select('id, name, role, description, relationship')
+    .select('id, name, role, description, relationship, image_path')
     .eq('campaign_id', campaignId)
     .order('name')
   if (data) setNpcs(data)
@@ -382,31 +382,45 @@ export default function PlayerDashboard({
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                         }}
                       >
-                        <div>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>
-                            {npc.name}
-                          </span>
-                          {npc.role && (
-                            <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>
-                              {npc.role}
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                          {npc.image_path && (
+                            <img src={getHandoutImageUrl(npc.image_path)} alt={npc.name}
+                              style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #3a3a4a' }} />
                           )}
-                          <span style={{
-                            marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                            background: relColor + '22', color: relColor,
-                          }}>{npc.relationship}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>
+                              {npc.name}
+                            </span>
+                            {npc.role && (
+                              <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>
+                                {npc.role}
+                              </span>
+                            )}
+                            <span style={{
+                              marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 3,
+                              background: relColor + '22', color: relColor,
+                            }}>{npc.relationship}</span>
+                          </div>
                         </div>
-                        <span style={{ color: '#555', fontSize: 11 }}>
+                        <span style={{ color: '#555', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
                           {expandedNpc === npc.id ? '▲' : '▼'}
                         </span>
                       </div>
-                      {expandedNpc === npc.id && npc.description && (
-                        <div style={{
-                          padding: '8px 12px 12px', fontSize: 12, color: '#888',
-                          lineHeight: 1.7, borderTop: '1px solid #2a2a3a',
-                          whiteSpace: 'pre-wrap'
-                        }}>
-                          {npc.description}
+                      {expandedNpc === npc.id && (npc.image_path || npc.description) && (
+                        <div style={{ padding: '8px 12px 12px', borderTop: '1px solid #2a2a3a' }}>
+                          {npc.image_path && (
+                            <img src={getHandoutImageUrl(npc.image_path)} alt={npc.name}
+                              onClick={() => setLightboxUrl(getHandoutImageUrl(npc.image_path!))}
+                              style={{
+                                width: '100%', borderRadius: 8, marginBottom: npc.description ? 8 : 0,
+                                cursor: 'zoom-in', border: '1px solid #2a2a3a'
+                              }} />
+                          )}
+                          {npc.description && (
+                            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                              {npc.description}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -5,4 +5,5 @@ export interface NPC {
   description: string
   relationship: 'alleato' | 'neutrale' | 'nemico'
   notes: string
+  image_path?: string | null
 }
