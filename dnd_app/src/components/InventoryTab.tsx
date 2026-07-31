@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Item } from '../models/item'
-import { getCategoryIcon, UI_ICONS } from '../icons'
+import { getCategoryIcon, getCategoryLabel, UI_ICONS } from '../icons'
 
 interface CatalogItem {
   id: string
@@ -402,7 +402,7 @@ export default function InventoryTab({
               >
                 <option value="all">Tutte</option>
                 {categories.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>{getCategoryLabel(c)}</option>
                 ))}
               </select>
               <button
@@ -449,7 +449,7 @@ export default function InventoryTab({
                         )}
                       </div>
                       <div style={{ fontSize: 12, color: '#555', marginTop: 2, marginLeft: 22 }}>
-                        {item.category}
+                        {getCategoryLabel(item.category)}
                         {item.cost ? ` · ${item.cost}` : ''}
                         {item.weight ? ` · ${item.weight} kg` : ''}
                         {item.damage ? ` · ${item.damage}` : ''}

@@ -258,3 +258,29 @@ export function getSchoolColor(school: string): string {
 export function getCategoryIcon(category: string): string {
   return CATEGORY_ICONS[category] ?? CATEGORY_ICONS.default
 }
+
+// Etichette IT per le categorie oggetti (la colonna `category` resta in
+// inglese perché usata come chiave per icone/filtri; qui solo per display).
+export const CATEGORY_LABELS: Record<string, string> = {
+  'Weapon': 'Arma',
+  'Armor': 'Armatura',
+  'Adventuring Gear': 'Equipaggiamento',
+  'Tools': 'Strumenti',
+  'Mounts and Vehicles': 'Cavalcature e Veicoli',
+  'Trade Goods': 'Merci',
+  'Treasure': 'Tesori',
+  'Potion': 'Pozione',
+  'Ring': 'Anello',
+  'Rod': 'Verga',
+  'Scroll': 'Pergamena',
+  'Staff': 'Bastone',
+  'Wand': 'Bacchetta',
+  'Wondrous Items': 'Oggetti Meravigliosi',
+  'Equipment Pack': 'Kit Equipaggiamento',
+  'Magic Armor': 'Armatura Magica',
+  'Magic Weapon': 'Arma Magica',
+}
+
+export function getCategoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? category
+}
