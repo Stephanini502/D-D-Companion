@@ -297,7 +297,7 @@ export default function InitiativeTracker({
           <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
             {([
               { key: 'custom', label: `${UI_ICONS.custom} Custom` },
-              { key: 'monster', label: `👹 Mostro` },
+              { key: 'monster', label: `${UI_ICONS.monster} Mostro` },
               { key: 'player', label: `${UI_ICONS.player} Giocatori` },
             ] as { key: AddMode, label: string }[]).map(m => (
               <button key={m.key} onClick={() => setAddMode(m.key)} style={{
@@ -636,7 +636,7 @@ export default function InitiativeTracker({
                         color: c.conditions?.length > 0 ? '#e05555' : '#444'
                       }}
                       title="Condizioni"
-                    >⚡</button>
+                    >{UI_ICONS.initiative}</button>
                     <button
                       onClick={() => handleRemove(c.id)}
                       style={{

@@ -286,7 +286,7 @@ export default function MusicPlayer({ campaignId }: { campaignId: string }) {
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Categoria</label>
               <select value={category} onChange={e => setCategory(e.target.value)} style={{ width: '100%' }}>
-                {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
+                {MUSIC_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>

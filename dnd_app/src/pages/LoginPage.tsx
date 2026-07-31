@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { UI_ICONS } from '../icons'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -32,7 +33,7 @@ export default function LoginPage() {
         borderRadius: 16, padding: 40
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>⚔️</div>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>{UI_ICONS.logo}</div>
           <h1 style={{ color: '#c9a84c', fontSize: 24, fontWeight: 700, letterSpacing: 1 }}>
             D&D Companion
           </h1>

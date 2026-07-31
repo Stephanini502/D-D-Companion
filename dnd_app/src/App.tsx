@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
+import { UI_ICONS } from './icons'
 import type { Session } from '@supabase/supabase-js'
 
 export default function App() {
@@ -28,7 +29,7 @@ export default function App() {
       background: '#0f0f13', color: '#c9a84c'
     }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>⚔️</div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>{UI_ICONS.logo}</div>
         <p>Caricamento...</p>
       </div>
     </div>

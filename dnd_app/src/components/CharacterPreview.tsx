@@ -383,8 +383,8 @@ export default function CharacterPreview({
             {/* Tab bar */}
             <div style={{ display: 'flex', borderBottom: '1px solid #2a2a3a', marginBottom: 16 }}>
               {([
-                { key: 'stats', label: '📊 Stats' },
-                { key: 'abilities', label: '🎯 Abilità' },
+                { key: 'stats', label: `${UI_ICONS.stats} Stats` },
+                { key: 'abilities', label: `${UI_ICONS.skills} Abilità` },
                 { key: 'inventory', label: `${UI_ICONS.inventory} Zaino` },
                 { key: 'spells', label: `${UI_ICONS.spells} Magie` },
               ] as const).map(t => (
@@ -492,8 +492,8 @@ export default function CharacterPreview({
               <div>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
                   {([
-                    { key: 'skills', label: '🎯 Abilità' },
-                    { key: 'traits', label: '⭐ Tratti' },
+                    { key: 'skills', label: `${UI_ICONS.skills} Abilità` },
+                    { key: 'traits', label: `${UI_ICONS.traits} Tratti` },
                     { key: 'talents', label: `${UI_ICONS.spells} Talenti` },
                   ] as const).map(s => (
                     <button key={s.key} onClick={() => setAbilitySection(s.key)} style={{
@@ -550,7 +550,7 @@ export default function CharacterPreview({
                     {raceTraits.length > 0 && (
                       <>
                         <div style={{ fontSize: 11, color: '#c9a84c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>
-                          ⭐ Tratti Razziali
+                          {UI_ICONS.traits} Tratti Razziali
                         </div>
                         {raceTraits.map(trait => (
                           <div key={trait.id} style={{

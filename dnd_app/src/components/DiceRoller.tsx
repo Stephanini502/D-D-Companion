@@ -299,8 +299,8 @@ export default function DiceRoller({
 
         {total !== null && !rolling && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            {isCrit && <div style={{ fontSize: 13, color: '#c9a84c', fontWeight: 700, letterSpacing: 1 }}>⭐ CRITICO!</div>}
-            {isFumble && <div style={{ fontSize: 13, color: '#e05555', fontWeight: 700, letterSpacing: 1 }}>💀 FALLIMENTO CRITICO!</div>}
+            {isCrit && <div style={{ fontSize: 13, color: '#c9a84c', fontWeight: 700, letterSpacing: 1 }}>{UI_ICONS.crit} CRITICO!</div>}
+            {isFumble && <div style={{ fontSize: 13, color: '#e05555', fontWeight: 700, letterSpacing: 1 }}>{UI_ICONS.fumble} FALLIMENTO CRITICO!</div>}
             <div style={{
               fontSize: 56, fontWeight: 700,
               color: isCrit ? '#c9a84c' : isFumble ? '#e05555' : '#e8e0d0',

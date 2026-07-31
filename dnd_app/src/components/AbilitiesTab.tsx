@@ -143,9 +143,9 @@ export default function AbilitiesTab({
       {/* Sezione switcher */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         {([
-          { key: 'skills', label: '🎯 Abilità' },
-          { key: 'traits', label: '⭐ Tratti' },
-          { key: 'talents', label: '✨ Talenti' },
+          { key: 'skills', label: `${UI_ICONS.skills} Abilità` },
+          { key: 'traits', label: `${UI_ICONS.traits} Tratti` },
+          { key: 'talents', label: `${UI_ICONS.talents} Talenti` },
         ] as const).map(s => (
           <button
             key={s.key}
@@ -232,7 +232,7 @@ export default function AbilitiesTab({
 
           {traits.length === 0 && (
             <div style={{ textAlign: 'center', color: '#444', padding: 40 }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>⭐</div>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.traits}</div>
               <p>Nessun tratto disponibile.</p>
               <p style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
                 I tratti vengono caricati automaticamente dal catalogo.
@@ -247,7 +247,7 @@ export default function AbilitiesTab({
                 fontSize: 11, color: '#c9a84c', letterSpacing: 1,
                 textTransform: 'uppercase', fontWeight: 700, marginBottom: 4
               }}>
-                ⭐ Tratti Razziali — {characterRace}
+                {UI_ICONS.traits} Tratti Razziali — {characterRace}
               </div>
               {raceTraits.map(trait => (
                 <div
@@ -293,7 +293,7 @@ export default function AbilitiesTab({
                 textTransform: 'uppercase', fontWeight: 700,
                 marginTop: raceTraits.length > 0 ? 8 : 0, marginBottom: 4
               }}>
-                ⚔️ Tratti di Classe — {characterClass}
+                {UI_ICONS.combat} Tratti di Classe — {characterClass}
               </div>
               {classTraits.map(trait => (
                 <div
