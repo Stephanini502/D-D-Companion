@@ -149,7 +149,7 @@ export default function HomePage() {
                       <span style={{
                         background: '#1e1e2a', border: '1px solid #3a3a4a',
                         borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#e05555'
-                      }}>{UI_ICONS.hp} {c.hp_current}/{c.hp_max}</span>
+                      }}>{UI_ICONS.hp} PF {c.hp_max}</span>
                     </div>
                   </div>
                   <button onClick={e => handleDelete(c.id, e)} style={{
