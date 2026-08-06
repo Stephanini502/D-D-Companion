@@ -420,7 +420,7 @@ export default function CharacterPage({
         }}>
           <div onClick={e => e.stopPropagation()} style={{
             background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 16,
-            width: '100%', maxWidth: 400, maxHeight: '85vh',
+            width: '100%', maxWidth: 400, maxHeight: '100vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
             <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 15, padding: '16px 16px 0' }}>
@@ -443,7 +443,7 @@ export default function CharacterPage({
             <div style={{ fontSize: 11, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
               Caratteristiche
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, rowGap: 6, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, rowGap: 6, marginBottom: 14 }}>
               {STAT_ORDER.map(key => (
                 <div key={key} style={{ textAlign: 'center' }}>
                   <label title={STAT_LABELS[key]} style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>{key}</label>
