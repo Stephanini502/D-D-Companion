@@ -420,11 +420,14 @@ export default function CharacterPage({
         }}>
           <div onClick={e => e.stopPropagation()} style={{
             background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 16,
-            padding: 16, width: '100%', maxWidth: 400
+            width: '100%', maxWidth: 400, maxHeight: '85vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
-            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 15, marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 15, padding: '16px 16px 0' }}>
               {UI_ICONS.edit} Modifica Personaggio
             </div>
+
+            <div style={{ padding: 16, overflowY: 'auto' }}>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               <div>
@@ -453,7 +456,9 @@ export default function CharacterPage({
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, padding: 16, borderTop: '1px solid #2a2a3a' }}>
               <button onClick={saveEdit} disabled={savingEdit} style={{
                 flex: 1, padding: '9px 0',
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
