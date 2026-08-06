@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import SpellsTab from '../components/SpellsTab'
@@ -6,6 +6,7 @@ import InventoryTab from '../components/InventoryTab'
 import CombatTab from '../components/CombatTab'
 import AbilitiesTab from '../components/AbilitiesTab'
 import { useDialog } from '../components/Dialog'
+import NumberStepper from '../components/NumberStepper'
 import { getDarkvision, getPassivePerception, getProficiencyBonus } from '../data/raceTraits'
 import { getClassIcon, UI_ICONS } from '../icons'
 
@@ -28,7 +29,6 @@ export default function CharacterPage({
 }) {
   const [tab, setTab] = useState<Tab>('stats')
   const [char, setChar] = useState<Character>(character)
-  const [hp, setHp] = useState(character.hp_current)
   const [deleting, setDeleting] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -40,9 +40,6 @@ export default function CharacterPage({
   const [showFullImage, setShowFullImage] = useState(false)
   const [perceptionProficiency, setPerceptionProficiency] = useState(false)
   const { confirm, DialogComponent } = useDialog()
-
-  // Evita di salvare i PF al primo render (valore appena caricato dal DB)
-  const skipHpSave = useRef(true)
 
   useEffect(() => {
     async function loadData() {
@@ -61,24 +58,11 @@ export default function CharacterPage({
         setPerceptionProficiency(data.perception_proficiency)
       }
       if (typeof data?.hp_current === 'number') {
-        skipHpSave.current = true
-        setHp(data.hp_current)
+        setChar(c => ({ ...c, hp_current: data.hp_current }))
       }
     }
     loadData()
   }, [character.id])
-
-  // Persiste i PF correnti su Supabase con debounce
-  useEffect(() => {
-    if (skipHpSave.current) {
-      skipHpSave.current = false
-      return
-    }
-    const t = setTimeout(() => {
-      supabase.from('characters').update({ hp_current: hp }).eq('id', character.id)
-    }, 500)
-    return () => clearTimeout(t)
-  }, [hp, character.id])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -123,7 +107,7 @@ export default function CharacterPage({
   async function saveEdit() {
     setSavingEdit(true)
     const newStats = { ...char.stats, ...editStats }
-    const newHpCurrent = Math.min(hp, editHpMax)
+    const newHpCurrent = Math.min(char.hp_current, editHpMax)
     const { error } = await supabase
       .from('characters')
       .update({
@@ -136,8 +120,6 @@ export default function CharacterPage({
     setSavingEdit(false)
     if (error) return
     setChar({ ...char, level: editLevel, hp_max: editHpMax, hp_current: newHpCurrent, stats: newStats as Character['stats'] })
-    skipHpSave.current = true
-    setHp(newHpCurrent)
     setShowEdit(false)
   }
 
@@ -157,8 +139,6 @@ export default function CharacterPage({
     onBack()
   }
 
-  const hpPercent = Math.round((hp / char.hp_max) * 100)
-  const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
   const sagMod = Math.floor(((char.stats.SAG as number) - 10) / 2)
   const profBonus = getProficiencyBonus(char.level)
   const passivePerception = getPassivePerception(sagMod, profBonus, perceptionProficiency)
@@ -224,38 +204,13 @@ export default function CharacterPage({
                 borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer'
               }}>{UI_ICONS.edit} Modifica</button>
             </p>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
-                  {hp} / {char.hp_max}
-                </span>
-              </div>
-              <div style={{ height: 6, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', width: `${hpPercent}%`,
-                  background: hpColor, borderRadius: 3,
-                  transition: 'width 0.3s, background 0.3s'
-                }} />
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button
-                  onClick={() => setHp(h => Math.max(0, h - 1))}
-                  style={{
-                    flex: 1, padding: '6px 0',
-                    background: '#1e1e2a', border: '1px solid #e05555',
-                    color: '#e05555', borderRadius: 6, fontSize: 13, fontWeight: 600
-                  }}
-                >{UI_ICONS.damage} Danno</button>
-                <button
-                  onClick={() => setHp(h => Math.min(char.hp_max, h + 1))}
-                  style={{
-                    flex: 1, padding: '6px 0',
-                    background: '#1e1e2a', border: '1px solid #4caf82',
-                    color: '#4caf82', borderRadius: 6, fontSize: 13, fontWeight: 600
-                  }}
-                >{UI_ICONS.heal} Cura</button>
-              </div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#16161f', border: '1px solid #2a2a3a',
+              borderRadius: 8, padding: '6px 12px'
+            }}>
+              <span style={{ fontSize: 11, color: '#888' }}>{UI_ICONS.hp} PF Massimi</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#e05555' }}>{char.hp_max}</span>
             </div>
           </div>
         </div>
@@ -465,38 +420,33 @@ export default function CharacterPage({
         }}>
           <div onClick={e => e.stopPropagation()} style={{
             background: '#16161f', border: '1px solid #2a2a3a', borderRadius: 16,
-            padding: 20, width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto'
+            padding: 16, width: '100%', maxWidth: 400
           }}>
-            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 16, marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, color: '#e8e0d0', fontSize: 15, marginBottom: 12 }}>
               {UI_ICONS.edit} Modifica Personaggio
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               <div>
-                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Livello</label>
-                <input type="number" min={1} max={20} value={editLevel}
-                  onChange={e => setEditLevel(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Livello</label>
+                <NumberStepper value={editLevel} min={1} max={20} height={38} maxWidth={150} ariaLabel="Livello" onChange={setEditLevel} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>PF Massimi</label>
-                <input type="number" min={1} value={editHpMax}
-                  onChange={e => setEditHpMax(Math.max(1, Number(e.target.value) || 1))}
-                  style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>PF Massimi</label>
+                <NumberStepper value={editHpMax} min={1} max={999} height={38} maxWidth={150} ariaLabel="PF massimi" onChange={setEditHpMax} />
               </div>
             </div>
 
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
               Caratteristiche
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, rowGap: 6, marginBottom: 14 }}>
               {STAT_ORDER.map(key => (
                 <div key={key} style={{ textAlign: 'center' }}>
-                  <label title={STAT_LABELS[key]} style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>{key}</label>
-                  <input type="number" min={1} max={30} value={editStats[key] ?? 10}
-                    onChange={e => setEditStats(s => ({ ...s, [key]: Math.max(1, Math.min(30, Number(e.target.value) || 1)) }))}
-                    style={{ width: '100%', textAlign: 'center', fontWeight: 700 }} />
-                  <div style={{ fontSize: 11, color: '#c9a84c', fontWeight: 600, marginTop: 2 }}>
+                  <label title={STAT_LABELS[key]} style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>{key}</label>
+                  <NumberStepper value={editStats[key] ?? 10} min={1} max={30} height={38} maxWidth={118} ariaLabel={STAT_LABELS[key]}
+                    onChange={n => setEditStats(s => ({ ...s, [key]: n }))} />
+                  <div style={{ fontSize: 11, color: '#c9a84c', fontWeight: 600, marginTop: 1 }}>
                     {mod(editStats[key] ?? 10)}
                   </div>
                 </div>
@@ -505,13 +455,13 @@ export default function CharacterPage({
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={saveEdit} disabled={savingEdit} style={{
-                flex: 1, padding: '10px 0',
+                flex: 1, padding: '9px 0',
                 background: 'linear-gradient(135deg, #c9a84c, #a07830)',
                 border: 'none', color: '#0f0f13', borderRadius: 8, fontWeight: 700,
                 cursor: savingEdit ? 'default' : 'pointer'
               }}>{savingEdit ? 'Salvataggio...' : `${UI_ICONS.save} Salva`}</button>
               <button onClick={() => setShowEdit(false)} disabled={savingEdit} style={{
-                padding: '10px 16px', background: 'none',
+                padding: '9px 16px', background: 'none',
                 border: '1px solid #2a2a3a', color: '#888', borderRadius: 8, cursor: 'pointer'
               }}>Annulla</button>
             </div>

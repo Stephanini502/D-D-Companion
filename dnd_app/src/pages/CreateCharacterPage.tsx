@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { UI_ICONS } from '../icons'
+import NumberStepper from '../components/NumberStepper'
 
 interface CatalogClass {
   id: string
@@ -178,13 +179,13 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Livello</label>
-              <input
-                type="number"
+              <NumberStepper
                 value={level}
                 min={1}
                 max={20}
-                onChange={e => setLevel(Number(e.target.value))}
-                style={{ width: '100%' }}
+                maxWidth={170}
+                ariaLabel="Livello"
+                onChange={setLevel}
               />
             </div>
             <div>
@@ -196,11 +197,13 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
                   </span>
                 )}
               </label>
-              <input
-                type="number"
+              <NumberStepper
                 value={hpMax}
-                onChange={e => setHpMax(Number(e.target.value))}
-                style={{ width: '100%' }}
+                min={1}
+                max={999}
+                maxWidth={170}
+                ariaLabel="PF massimi"
+                onChange={setHpMax}
               />
             </div>
           </div>
@@ -215,13 +218,13 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
                 <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 6 }}>
                   {key}
                 </div>
-                <input
-                  type="number"
+                <NumberStepper
                   value={val}
                   min={1}
                   max={20}
-                  onChange={e => updateStat(key, Number(e.target.value))}
-                  style={{ width: '100%', textAlign: 'center', fontSize: 18, fontWeight: 700 }}
+                  maxWidth={130}
+                  ariaLabel={key}
+                  onChange={n => updateStat(key, n)}
                 />
                 <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginTop: 4 }}>
                   {Math.floor((val - 10) / 2) >= 0 ? '+' : ''}{Math.floor((val - 10) / 2)}
