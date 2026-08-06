@@ -176,14 +176,15 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
 
         {/* Livello e PF */}
         <div style={sectionStyle}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
             <div>
               <label style={labelStyle}>Livello</label>
               <NumberStepper
                 value={level}
                 min={1}
                 max={20}
-                maxWidth={170}
+                height={38}
+                maxWidth={150}
                 ariaLabel="Livello"
                 onChange={setLevel}
               />
@@ -201,7 +202,8 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
                 value={hpMax}
                 min={1}
                 max={999}
-                maxWidth={170}
+                height={38}
+                maxWidth={150}
                 ariaLabel="PF massimi"
                 onChange={setHpMax}
               />
@@ -212,7 +214,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
         {/* Caratteristiche */}
         <div style={sectionStyle}>
           <label style={{ ...labelStyle, marginBottom: 12 }}>Caratteristiche</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, rowGap: 6 }}>
             {Object.entries(stats).map(([key, val]) => (
               <div key={key} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 6 }}>
@@ -222,7 +224,8 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
                   value={val}
                   min={1}
                   max={20}
-                  maxWidth={130}
+                  height={38}
+                  maxWidth={118}
                   ariaLabel={key}
                   onChange={n => updateStat(key, n)}
                 />

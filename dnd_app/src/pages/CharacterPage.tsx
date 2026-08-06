@@ -429,7 +429,7 @@ export default function CharacterPage({
 
             <div style={{ padding: 16, overflowY: 'auto' }}>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, marginBottom: 12 }}>
               <div>
                 <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Livello</label>
                 <NumberStepper value={editLevel} min={1} max={20} height={38} maxWidth={150} ariaLabel="Livello" onChange={setEditLevel} />
@@ -443,7 +443,7 @@ export default function CharacterPage({
             <div style={{ fontSize: 11, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
               Caratteristiche
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, rowGap: 6, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, rowGap: 6, marginBottom: 14 }}>
               {STAT_ORDER.map(key => (
                 <div key={key} style={{ textAlign: 'center' }}>
                   <label title={STAT_LABELS[key]} style={{ fontSize: 10, color: '#666', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>{key}</label>
