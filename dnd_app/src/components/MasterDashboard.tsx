@@ -584,11 +584,9 @@ export default function MasterDashboard({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {members.map(m => {
                 const char = m.character
-                const hpPercent = char ? Math.round((char.hp_current / char.hp_max) * 100) : 0
-                const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
                 return (
                   <div key={m.id} style={{ background: '#1e1e2a', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: char ? 6 : 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e0d0' }}>
                           {char ? char.name : m.username}
@@ -600,19 +598,11 @@ export default function MasterDashboard({
                         )}
                       </div>
                       {char && (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
-                          {char.hp_current}/{char.hp_max} PF
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e05555' }}>
+                          {UI_ICONS.hp} PF Massimi {char.hp_max}
                         </span>
                       )}
                     </div>
-                    {char && (
-                      <div style={{ height: 4, background: '#2a2a3a', borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', width: `${hpPercent}%`,
-                          background: hpColor, borderRadius: 2, transition: 'width 0.3s'
-                        }} />
-                      </div>
-                    )}
                     {!char && (
                       <div style={{ fontSize: 11, color: '#444' }}>Nessun personaggio collegato</div>
                     )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Character } from '../models/character'
 import SpellsTab from '../components/SpellsTab'
@@ -20,21 +21,18 @@ const STAT_LABELS: Record<string, string> = {
   INT: 'Intelligenza', SAG: 'Saggezza', CAR: 'Carisma',
 }
 
-export default function CharacterPage({
-  character,
-  onBack
-}: {
-  character: Character
-  onBack: () => void
-}) {
+export default function CharacterPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('stats')
-  const [char, setChar] = useState<Character>(character)
+  const [char, setChar] = useState<Character | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
-  const [editLevel, setEditLevel] = useState(character.level)
-  const [editHpMax, setEditHpMax] = useState(character.hp_max)
-  const [editStats, setEditStats] = useState<Record<string, number>>({ ...character.stats })
+  const [editLevel, setEditLevel] = useState(1)
+  const [editHpMax, setEditHpMax] = useState(10)
+  const [editStats, setEditStats] = useState<Record<string, number>>({})
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showFullImage, setShowFullImage] = useState(false)
@@ -42,34 +40,37 @@ export default function CharacterPage({
   const { confirm, DialogComponent } = useDialog()
 
   useEffect(() => {
-    async function loadData() {
-      const { data } = await supabase
+    let cancelled = false
+    async function loadCharacter() {
+      const { data, error } = await supabase
         .from('characters')
-        .select('image_path, perception_proficiency, hp_current')
-        .eq('id', character.id)
+        .select('*')
+        .eq('id', id)
         .single()
-      if (data?.image_path) {
+      if (cancelled) return
+      if (error || !data) {
+        setNotFound(true)
+        return
+      }
+      if (data.image_path) {
         const url = supabase.storage
           .from(BUCKET)
           .getPublicUrl(data.image_path).data.publicUrl
         setImageUrl(url + '?t=' + Date.now())
       }
-      if (data?.perception_proficiency !== undefined) {
-        setPerceptionProficiency(data.perception_proficiency)
-      }
-      if (typeof data?.hp_current === 'number') {
-        setChar(c => ({ ...c, hp_current: data.hp_current }))
-      }
+      setPerceptionProficiency(!!data.perception_proficiency)
+      setChar(data)
     }
-    loadData()
-  }, [character.id])
+    loadCharacter()
+    return () => { cancelled = true }
+  }, [id])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || !char) return
     setUploadingImage(true)
     const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${character.id}.${ext}`
+    const path = `${char.id}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(path, file, { upsert: true })
@@ -77,19 +78,20 @@ export default function CharacterPage({
       setUploadingImage(false)
       return
     }
-    await supabase.from('characters').update({ image_path: path }).eq('id', character.id)
+    await supabase.from('characters').update({ image_path: path }).eq('id', char.id)
     const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
     setImageUrl(url + '?t=' + Date.now())
     setUploadingImage(false)
   }
 
   async function togglePerceptionProficiency() {
+    if (!char) return
     const newVal = !perceptionProficiency
     setPerceptionProficiency(newVal)
     await supabase
       .from('characters')
       .update({ perception_proficiency: newVal })
-      .eq('id', character.id)
+      .eq('id', char.id)
   }
 
   function mod(val: number) {
@@ -98,6 +100,7 @@ export default function CharacterPage({
   }
 
   function openEdit() {
+    if (!char) return
     setEditLevel(char.level)
     setEditHpMax(char.hp_max)
     setEditStats({ ...char.stats })
@@ -105,6 +108,7 @@ export default function CharacterPage({
   }
 
   async function saveEdit() {
+    if (!char) return
     setSavingEdit(true)
     const newStats = { ...char.stats, ...editStats }
     const newHpCurrent = Math.min(char.hp_current, editHpMax)
@@ -124,20 +128,39 @@ export default function CharacterPage({
   }
 
   async function handleDelete() {
+    if (!char) return
     const ok = await confirm({
       title: 'Elimina Personaggio',
-      message: `Sei sicuro di voler eliminare ${character.name}? Questa azione è irreversibile.`,
+      message: `Sei sicuro di voler eliminare ${char.name}? Questa azione è irreversibile.`,
       confirmLabel: `${UI_ICONS.delete} Elimina`,
       cancelLabel: 'Annulla',
       danger: true
     })
     if (!ok) return
     setDeleting(true)
-    await supabase.from('spells').delete().eq('character_id', character.id)
-    await supabase.from('inventory_items').delete().eq('character_id', character.id)
-    await supabase.from('characters').delete().eq('id', character.id)
-    onBack()
+    await supabase.from('spells').delete().eq('character_id', char.id)
+    await supabase.from('inventory_items').delete().eq('character_id', char.id)
+    await supabase.from('characters').delete().eq('id', char.id)
+    navigate('/personaggi')
   }
+
+  if (notFound) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.combat}</div>
+        <p>Personaggio non trovato.</p>
+      </div>
+    </div>
+  )
+
+  if (!char) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.combat}</div>
+        <p>Caricamento...</p>
+      </div>
+    </div>
+  )
 
   const sagMod = Math.floor(((char.stats.SAG as number) - 10) / 2)
   const profBonus = getProficiencyBonus(char.level)
@@ -161,7 +184,7 @@ export default function CharacterPage({
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
       }}>
-        <button onClick={onBack} style={{
+        <button onClick={() => navigate('/personaggi')} style={{
           background: 'none', border: '1px solid #2a2a3a',
           color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
         }}>{UI_ICONS.back} Indietro</button>
@@ -185,17 +208,17 @@ export default function CharacterPage({
               overflow: 'hidden'
             }}>
               {imageUrl ? (
-                <img src={imageUrl} alt={character.name}
+                <img src={imageUrl} alt={char.name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <span style={{ fontSize: 34 }}>{getClassIcon(character.character_class)}</span>
+                <span style={{ fontSize: 34 }}>{getClassIcon(char.character_class)}</span>
               )}
             </div>
           </div>
 
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e8e0d0', margin: 0 }}>
-              {character.name}
+              {char.name}
             </h1>
             <p style={{ color: '#888', fontSize: 13, margin: '4px 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>{char.race} · {char.character_class} · Livello {char.level}</span>
@@ -253,12 +276,12 @@ export default function CharacterPage({
                 }}
               >
                 {imageUrl ? (
-                  <img src={imageUrl} alt={character.name}
+                  <img src={imageUrl} alt={char.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     onError={() => setImageUrl(null)} />
                 ) : (
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 72 }}>{getClassIcon(character.character_class)}</div>
+                    <div style={{ fontSize: 72 }}>{getClassIcon(char.character_class)}</div>
                     <div style={{ fontSize: 12, color: '#444', marginTop: 8 }}>Nessuna immagine</div>
                   </div>
                 )}

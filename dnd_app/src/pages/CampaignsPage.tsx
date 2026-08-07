@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import CampaignPage from './CampaignPage'
 import { UI_ICONS } from '../icons'
 
 interface Campaign {
@@ -21,9 +21,9 @@ interface Character {
 }
 
 export default function CampaignsPage() {
+  const navigate = useNavigate()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<Campaign | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -113,17 +113,6 @@ export default function CampaignsPage() {
     setLoadingAction(false)
   }
 
-  // NAVIGAZIONE: se una campagna è selezionata, mostra CampaignPage
-  if (selected) {
-    return (
-      <CampaignPage
-        campaign={selected}
-        userId={userId ?? ''}
-        onBack={() => { setSelected(null); loadCampaigns() }}
-      />
-    )
-  }
-
   // Dividi campagne per ruolo
   const masterCampaigns = campaigns.filter(c => c.master_id === userId)
   const playerCampaigns = campaigns.filter(c => c.master_id !== userId)
@@ -170,7 +159,7 @@ export default function CampaignsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {masterCampaigns.map(c => (
-              <CampaignCard key={c.id} campaign={c} isMaster={true} onClick={() => setSelected(c)} />
+              <CampaignCard key={c.id} campaign={c} isMaster={true} onClick={() => navigate(`/campagne/${c.id}`)} />
             ))}
           </div>
         </div>
@@ -187,7 +176,7 @@ export default function CampaignsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {playerCampaigns.map(c => (
-              <CampaignCard key={c.id} campaign={c} isMaster={false} onClick={() => setSelected(c)} />
+              <CampaignCard key={c.id} campaign={c} isMaster={false} onClick={() => navigate(`/campagne/${c.id}`)} />
             ))}
           </div>
         </div>

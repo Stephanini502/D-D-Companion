@@ -207,8 +207,6 @@ export default function PlayerDashboard({
 
   const activeQuests = quests.filter(q => q.status === 'active')
   const completedQuests = quests.filter(q => q.status === 'completed')
-  const hpPercent = character ? Math.round((character.hp_current / character.hp_max) * 100) : 0
-  const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -233,19 +231,13 @@ export default function PlayerDashboard({
               <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
                 {character.race} · {character.character_class} · Liv. {character.level}
               </div>
-              <div style={{ marginTop: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 11, color: '#888' }}>Punti Ferita</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: hpColor }}>
-                    {character.hp_current}/{character.hp_max}
-                  </span>
-                </div>
-                <div style={{ height: 5, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: `${hpPercent}%`,
-                    background: hpColor, borderRadius: 3, transition: 'width 0.3s'
-                  }} />
-                </div>
+              <div style={{
+                marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#1e1e2a', border: '1px solid #2a2a3a',
+                borderRadius: 8, padding: '4px 10px'
+              }}>
+                <span style={{ fontSize: 11, color: '#888' }}>{UI_ICONS.hp} PF Massimi</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#e05555' }}>{character.hp_max}</span>
               </div>
             </div>
           </div>

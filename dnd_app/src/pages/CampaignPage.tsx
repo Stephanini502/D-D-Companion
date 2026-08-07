@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import InitiativeTracker from '../components/InitiativeTracker'
 import CampaignNotes from '../components/CampaignNotes'
@@ -21,29 +22,52 @@ interface Campaign {
 
 type Tab = 'dashboard' | 'sessions' | 'notes' | 'initiative' | 'members' | 'dice' | 'music'
 
-export default function CampaignPage({
-  campaign,
-  userId,
-  onBack
-}: {
-  campaign: Campaign
-  userId: string
-  onBack: () => void
-}) {
+export default function CampaignPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
-  const isMaster = campaign.master_id === userId
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const isMaster = campaign?.master_id === userId
   const { confirm, DialogComponent } = useDialog()
 
   const [editingName, setEditingName] = useState(false)
-  const [currentName, setCurrentName] = useState(campaign.name)
-  const [newName, setNewName] = useState(campaign.name)
+  const [currentName, setCurrentName] = useState('')
+  const [newName, setNewName] = useState('')
   const [savingName, setSavingName] = useState(false)
   const [username, setUsername] = useState('')
 
   useEffect(() => {
+    let cancelled = false
+    async function loadCampaign() {
+      // Non si può leggere direttamente da "campaigns" (RLS la limita al master):
+      // si riusa la stessa RPC della lista, che include anche le campagne a cui si partecipa.
+      const { data } = await supabase.rpc('get_user_campaigns')
+      if (cancelled) return
+      const found = (data as Campaign[] | null)?.find(c => c.id === id) ?? null
+      if (found) setCampaign(found)
+      else setNotFound(true)
+    }
+    loadCampaign()
+    return () => { cancelled = true }
+  }, [id])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id ?? null)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (campaign) { setCurrentName(campaign.name); setNewName(campaign.name) }
+  }, [campaign])
+
+  useEffect(() => {
+    if (!campaign) return
     async function loadUsername() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || !campaign) return
       if (isMaster) {
         setUsername('Master')
       } else {
@@ -57,9 +81,10 @@ export default function CampaignPage({
       }
     }
     loadUsername()
-  }, [campaign.id, isMaster])
+  }, [campaign, isMaster])
 
   async function handleSaveName() {
+    if (!campaign) return
     if (!newName.trim() || newName.trim() === currentName) {
       setEditingName(false)
       setNewName(currentName)
@@ -77,6 +102,7 @@ export default function CampaignPage({
   }
 
   async function handleLeave() {
+    if (!campaign) return
     const ok = await confirm({
       title: 'Abbandona Campagna',
       message: 'Sei sicuro di voler abbandonare questa campagna?',
@@ -89,10 +115,11 @@ export default function CampaignPage({
       .delete()
       .eq('campaign_id', campaign.id)
       .eq('user_id', userId)
-    onBack()
+    navigate('/campagne')
   }
 
   async function handleDelete() {
+    if (!campaign) return
     const ok = await confirm({
       title: 'Elimina Campagna',
       message: `Sei sicuro di voler eliminare "${currentName}"? Questa azione è irreversibile.`,
@@ -102,8 +129,26 @@ export default function CampaignPage({
     })
     if (!ok) return
     await supabase.from('campaigns').delete().eq('id', campaign.id)
-    onBack()
+    navigate('/campagne')
   }
+
+  if (notFound) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.combat}</div>
+        <p>Campagna non trovata.</p>
+      </div>
+    </div>
+  )
+
+  if (!campaign || !userId) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{UI_ICONS.combat}</div>
+        <p>Caricamento...</p>
+      </div>
+    </div>
+  )
 
   const tabs = [
     { key: 'dashboard', label: isMaster ? `${UI_ICONS.master} Dashboard` : `${UI_ICONS.stats} Dashboard` },
@@ -123,7 +168,7 @@ export default function CampaignPage({
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a'
       }}>
-        <button onClick={onBack} style={{
+        <button onClick={() => navigate('/campagne')} style={{
           background: 'none', border: '1px solid #2a2a3a',
           color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13
         }}>{UI_ICONS.back} Indietro</button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { UI_ICONS } from '../icons'
 import NumberStepper from '../components/NumberStepper'
@@ -14,7 +15,8 @@ interface CatalogRace {
   name: string
 }
 
-export default function CreateCharacterPage({ onCreated }: { onCreated: () => void }) {
+export default function CreateCharacterPage() {
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [selectedClass, setSelectedClass] = useState<CatalogClass | null>(null)
   const [selectedRace, setSelectedRace] = useState<CatalogRace | null>(null)
@@ -72,7 +74,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
       stats
     })
     if (error) setError(error.message)
-    else onCreated()
+    else navigate('/personaggi')
     setLoading(false)
   }
 
@@ -110,7 +112,7 @@ export default function CreateCharacterPage({ onCreated }: { onCreated: () => vo
         padding: '16px 24px', borderBottom: '1px solid #2a2a3a', marginBottom: 24
       }}>
         <button
-          onClick={() => onCreated()}
+          onClick={() => navigate('/personaggi')}
           style={{
             background: 'none', border: '1px solid #2a2a3a',
             color: '#888', borderRadius: 8, padding: '6px 12px', fontSize: 13

@@ -293,8 +293,6 @@ export default function CharacterPreview({
 
   if (!character) return null
 
-  const hpPercent = Math.round((character.hp_current / character.hp_max) * 100)
-  const hpColor = hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
   const sagMod = Math.floor((character.stats.SAG - 10) / 2)
   const profBonus = getProficiencyBonus(character.level)
   const passivePerception = getPassivePerception(sagMod, profBonus, character.perception_proficiency ?? false)
@@ -368,14 +366,13 @@ export default function CharacterPreview({
                 <p style={{ color: '#888', fontSize: 13, margin: '0 0 10px' }}>
                   {character.race} · {character.character_class} · Livello {character.level}
                 </p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>Punti Ferita</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: hpColor }}>
-                    {character.hp_current} / {character.hp_max}
-                  </span>
-                </div>
-                <div style={{ height: 6, background: '#2a2a3a', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${hpPercent}%`, background: hpColor, borderRadius: 3 }} />
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#1e1e2a', border: '1px solid #2a2a3a',
+                  borderRadius: 8, padding: '6px 12px'
+                }}>
+                  <span style={{ fontSize: 11, color: '#888' }}>{UI_ICONS.hp} PF Massimi</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#e05555' }}>{character.hp_max}</span>
                 </div>
               </div>
             </div>

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/LoginPage'
-import HomePage from './pages/HomePage'
+import HomeLayout from './pages/HomeLayout'
+import CharacterListPage from './pages/CharacterListPage'
+import CampaignsPage from './pages/CampaignsPage'
+import CreateCharacterPage from './pages/CreateCharacterPage'
+import CharacterPage from './pages/CharacterPage'
+import CampaignPage from './pages/CampaignPage'
 import { UI_ICONS } from './icons'
 import type { Session } from '@supabase/supabase-js'
 
@@ -37,7 +43,21 @@ export default function App() {
 
   return (
     <div style={{ background: '#0f0f13', minHeight: '100vh' }}>
-      {session ? <HomePage /> : <LoginPage />}
+      {session ? (
+        <HashRouter>
+          <Routes>
+            <Route element={<HomeLayout />}>
+              <Route path="/" element={<Navigate to="/personaggi" replace />} />
+              <Route path="/personaggi" element={<CharacterListPage />} />
+              <Route path="/campagne" element={<CampaignsPage />} />
+            </Route>
+            <Route path="/personaggi/nuovo" element={<CreateCharacterPage />} />
+            <Route path="/personaggi/:id" element={<CharacterPage />} />
+            <Route path="/campagne/:id" element={<CampaignPage />} />
+            <Route path="*" element={<Navigate to="/personaggi" replace />} />
+          </Routes>
+        </HashRouter>
+      ) : <LoginPage />}
     </div>
   )
 }

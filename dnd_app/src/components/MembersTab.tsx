@@ -18,7 +18,6 @@ interface CharacterInfo {
   race: string
   character_class: string
   level: number
-  hp_current: number
   hp_max: number
   image_path: string | null
 }
@@ -40,6 +39,7 @@ export default function MembersTab({
   const [characters, setCharacters] = useState<Record<string, CharacterInfo>>({})
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null)
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [myCharacters, setMyCharacters] = useState<CharacterInfo[]>([])
   const [showChangeCharacter, setShowChangeCharacter] = useState(false)
@@ -55,7 +55,7 @@ export default function MembersTab({
   async function loadMyCharacters() {
     const { data } = await supabase
       .from('characters')
-      .select('id, name, race, character_class, level, hp_current, hp_max, image_path')
+      .select('id, name, race, character_class, level, hp_max, image_path')
       .eq('user_id', userId)
       .order('name')
     if (data) setMyCharacters(data)
@@ -66,16 +66,17 @@ async function loadMembers() {
     .rpc('get_campaign_members', { cid: campaignId })
   if (data) {
     setMembers(data)
-    const charIds = data.map((m: Member) => m.character_id).filter(Boolean)
-    if (charIds.length > 0) {
+    const hasLinkedCharacter = data.some((m: Member) => m.character_id)
+    if (hasLinkedCharacter) {
+      // Lettura diretta di "characters" bloccata dalla RLS per chi non è
+      // proprietario: si passa dalla RPC che espone solo i campi di preview
+      // ai membri (o al master) della campagna.
       const { data: chars } = await supabase
-        .from('characters')
-        .select('id, name, race, character_class, level, hp_current, hp_max, image_path')
-        .in('id', charIds)
+        .rpc('get_campaign_member_characters', { cid: campaignId })
       if (chars) {
         const charMap: Record<string, CharacterInfo> = {}
         const urlMap: Record<string, string> = {}
-        chars.forEach(c => {
+        chars.forEach((c: CharacterInfo) => {
           charMap[c.id] = c
           if (c.image_path) {
             urlMap[c.id] = supabase.storage
@@ -249,33 +250,37 @@ async function loadMembers() {
         {members.map(m => {
           const char = m.character_id ? characters[m.character_id] : null
           const imgUrl = m.character_id ? imageUrls[m.character_id] : null
-          const hpPercent = char ? Math.round((char.hp_current / char.hp_max) * 100) : null
-          const hpColor = hpPercent !== null
-            ? hpPercent > 60 ? '#4caf82' : hpPercent > 30 ? '#c9a84c' : '#e05555'
-            : '#555'
+          // La scheda completa (stats/zaino/magie) richiede letture su altre
+          // tabelle non ancora aperte ai compagni di campagna: per ora si può
+          // aprire solo il proprio personaggio, o quello di chiunque se master.
+          const canPreview = !!char && (isMaster || m.user_id === userId)
 
           return (
             <div
               key={m.id}
-              onClick={() => char && setSelectedCharacterId(char.id)}
+              onClick={() => canPreview && setSelectedCharacterId(char!.id)}
               style={{
                 background: '#16161f', border: '1px solid #2a2a3a',
                 borderRadius: 10, padding: '12px 16px',
-                cursor: char ? 'pointer' : 'default',
+                cursor: canPreview ? 'pointer' : 'default',
                 transition: 'border-color 0.2s'
               }}
-              onMouseEnter={e => char && (e.currentTarget.style.borderColor = '#c9a84c')}
+              onMouseEnter={e => canPreview && (e.currentTarget.style.borderColor = '#c9a84c')}
               onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a3a')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 
-                {/* Avatar */}
-                <div style={{
-                  width: 52, height: 52, borderRadius: 10, flexShrink: 0,
-                  background: '#1e1e2a', border: '1px solid #3a3a4a',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
+                {/* Avatar — solo l'immagine è cliccabile (ingrandimento), indipendentemente
+                    dal permesso di aprire la scheda completa del personaggio */}
+                <div
+                  onClick={e => { if (imgUrl) { e.stopPropagation(); setFullImageUrl(imgUrl) } }}
+                  style={{
+                    width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                    background: '#1e1e2a', border: '1px solid #3a3a4a',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden', cursor: imgUrl ? 'zoom-in' : 'default'
+                  }}
+                >
                   {imgUrl ? (
                     <img src={imgUrl} alt={char?.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -296,19 +301,15 @@ async function loadMembers() {
                       <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
                         {char.name} · {char.race} · {char.character_class} Liv.{char.level}
                       </div>
-                      <div style={{ marginTop: 6 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <span style={{ fontSize: 10, color: '#555' }}>PF</span>
-                          <span style={{ fontSize: 10, color: hpColor, fontWeight: 600 }}>
-                            {char.hp_current}/{char.hp_max}
-                          </span>
-                        </div>
-                        <div style={{ height: 4, background: '#2a2a3a', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%', width: `${hpPercent}%`,
-                            background: hpColor, borderRadius: 2
-                          }} />
-                        </div>
+                      <div style={{
+                        marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5,
+                        background: '#1e1e2a', border: '1px solid #2a2a3a',
+                        borderRadius: 6, padding: '2px 8px'
+                      }}>
+                        <span style={{ fontSize: 10, color: '#555' }}>PF Massimi</span>
+                        <span style={{ fontSize: 10, color: '#e05555', fontWeight: 600 }}>
+                          {char.hp_max}
+                        </span>
                       </div>
                     </>
                   ) : (
@@ -347,6 +348,26 @@ async function loadMembers() {
           </div>
         )}
       </div>
+
+      {/* Fullscreen immagine */}
+      {fullImageUrl && (
+        <div onClick={() => setFullImageUrl(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 400,
+          background: 'rgba(0,0,0,0.95)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'zoom-out'
+        }}>
+          <button onClick={() => setFullImageUrl(null)} style={{
+            position: 'absolute', top: 20, right: 20,
+            background: 'rgba(255,255,255,0.1)', border: 'none',
+            color: '#fff', fontSize: 24, width: 40, height: 40,
+            borderRadius: '50%', cursor: 'pointer'
+          }}>{UI_ICONS.close}</button>
+          <img src={fullImageUrl} alt=""
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: 12 }}
+            onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   )
 }
